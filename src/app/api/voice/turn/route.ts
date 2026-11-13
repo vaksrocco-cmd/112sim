@@ -1,4 +1,4 @@
-// HÄÄL (Sander, feat/voice). KNOWLEDGE.md 9.1: päästekorraldaja üks vastus Claude'ilt voona.
+// HÄÄL (Sander, feat/voice). KNOWLEDGE.md 9.1: päästekorraldaja üks vastus tekstimudelilt voona (kaskaadhääle ja tekstirežiimi jaoks).
 // Päästekorraldaja EI tea tõde: kasutame ainult avalikku stsenaariumi ja dispatcherWhitelist'i.
 //
 // Päring:  POST { scenarioId, messages: [{ role: 'user' | 'assistant', content }] }
@@ -8,7 +8,7 @@
 //          {"type":"done"}  |  {"type":"error","message":"..."}
 import { z } from 'zod';
 import { loadPrompt } from '@/lib/agents/prompts';
-import { claudeStream, models } from '@/lib/llm/claude';
+import { llmStream, models, type LlmTool } from '@/lib/llm';
 import { getPublicScenario } from '@/lib/scenarios';
 
 export const maxDuration = 30;
@@ -18,11 +18,11 @@ const Body = z.object({
   messages: z.array(z.object({ role: z.enum(['user', 'assistant']), content: z.string().min(1) })).min(1),
 });
 
-const TOOLS = [
+const TOOLS: LlmTool[] = [
   {
     name: 'dispatch_ambulance',
     description: 'Saada kiirabi. Kutsu kohe, kui tead, mis juhtus ja kus.',
-    input_schema: {
+    parameters: {
       type: 'object',
       properties: {
         priority: { type: 'string', enum: ['A', 'B', 'C'] },
@@ -36,7 +36,7 @@ const TOOLS = [
   {
     name: 'end_call',
     description: 'Lõpeta kõne. Kutsu ainult pärast süsteemi märguannet, et abi on kohal.',
-    input_schema: { type: 'object', properties: {}, additionalProperties: false },
+    parameters: { type: 'object', properties: {}, additionalProperties: false },
   },
 ];
 
@@ -55,11 +55,11 @@ export async function POST(req: Request) {
     async start(controller) {
       const send = (o: unknown) => controller.enqueue(enc.encode(JSON.stringify(o) + '\n'));
       try {
-        for await (const delta of claudeStream({
+        for await (const delta of llmStream({
           model: models.fast(),
           system,
           messages: parsed.data.messages,
-          maxTokens: 300,
+          reasoningEffort: models.fastEffort(),
           tools: TOOLS,
           signal: req.signal,
           onToolUse: (name, input) => send({ type: 'tool', name, input }),

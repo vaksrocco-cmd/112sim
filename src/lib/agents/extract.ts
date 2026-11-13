@@ -9,6 +9,7 @@ export interface ExtractInput {
 }
 
 export async function extractFacts(input: ExtractInput): Promise<CallFacts> {
-  // TODO(Ats): Claude (lib/llm/claude.ts claudeJson, models.fast()) + mergeFacts + koodi järelkontroll.
+  // TODO(Ats): llmJson + models.fast() failist '@/lib/llm' (range skeem: kõik väljad required, valikulised nullitavad)
+  //            + mergeFacts + koodi järelkontroll.
   return input.prevFacts;
 }

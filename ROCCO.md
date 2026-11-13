@@ -50,20 +50,16 @@ Ehitajate juhend (Sander, Ats, Aaron) on `CONTRIBUTING.md`. Saada neile see link
 ### B1. ✅ Tiimikaaslaste kutsed (kutsed saadetud: sndr999, minaolenats, Sylembium; nad peavad need vastu võtma)
 **Settings → Collaborators → Add people** → Sanderi, Atsi, Aaroni (ja soovi korral Otto) GitHubi kasutajanimed. Nad peavad kutse vastu võtma (e-post või https://github.com/notifications). Seejärel määra igaüks tema issue'le (issue lehel paremal **Assignees**).
 
-### B2. Claude API võti (5 min)
-Claude Max 5x sisaldab **100 $ API krediiti kuus**, aga see tuleb ise siduda:
-1. claude.ai → **Settings → Billing** → **API credits** → **Link organization**. Kui Console'i organisatsiooni veel pole, loo see (platform.claude.com).
-2. Kontrolli platform.claude.com → **Billing**: krediit on real *Promotional credits*. See aegub iga arveldusperioodi lõpus ja Claude Code'is seda kasutada ei saa.
-3. platform.claude.com → **API keys → Create key** (nimi `112sim`). Kopeeri võti kohe: hiljem seda enam ei näe.
-4. **Limits** lehel pane kulupiir (nt 50 $), et vigane tsükkel krediiti ära ei sööks.
+### B2. OpenAI API võti (5 min)
+1. platform.openai.com → **API keys → Create new secret key** (nimi `112sim`). Kopeeri võti kohe: hiljem seda enam ei näe.
+2. **Billing:** kontrolli, et kontol on krediiti. **Limits** lehel pane kuu kulupiir (nt 30 $), et vigane tsükkel krediiti ära ei sööks.
+3. Võti läheb Vercelisse (B4) ja `.env.local`-i muutujana `OPENAI_API_KEY`.
 
-### B3. Supabase (5 min)
-supabase.com → **New project** (regioon Euroopas). Kui valmis: **SQL Editor** → kleebi `KNOWLEDGE.md` peatüki 12 SQL → **Run**. Siis **Project Settings → API**: kopeeri *Project URL* ja *service_role* võti.
+### B3. Supabase ✅ tabel on loodud
+Projekt „vaksrocco-cmd's Project“ organisatsioonis „viimsi AI hack“ (eu-west-2). Tabel `call_sessions` on olemas, RLS sees. **Jääb sulle:** Project Settings → API → kopeeri *Project URL* ja *service_role* võti Vercelisse (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`). Ilma nendeta hoitakse sessioone ainult serveri mälus.
 
-### B4. Vercel (5 min)
-1. vercel.com → logi sisse **GitHubi kontoga `vaksrocco-cmd`** → **Add New → Project** → vali `112sim` → **Import**.
-2. **Environment Variables:** lisa `.env.example` muutujad koos väärtustega. Märgi **Production** ja **Preview**. `NEXT_PUBLIC_VOICE_PROVIDER` = `mock`, kuni Sander ütleb, et hääl töötab.
-3. **Deploy.** Enne karkassi ebaõnnestub esimene avaldamine. See on ootuspärane.
+### B4. Vercel ✅ projekt on üleval: https://112sim.vercel.app
+Projekt `112sim` on repoga seotud; iga `main`-i merge avaldatakse automaatselt ja igale PR-ile tekib eelvaate link. **Jääb sulle:** projekt → **Environment Variables** → lisa `OPENAI_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (Production ja Preview) → Deployments → viimase rea „…“ → **Redeploy**. `NEXT_PUBLIC_VOICE_PROVIDER` jäta lisamata (vaikimisi `mock`), kuni Sander ütleb, et hääl töötab; siis pane `openai`.
 
 ### B5. Võtmed tiimile
 Tee `.env.local` (`.env.example` täidetud väärtustega) ja saada see **privaatsõnumiga igaühele eraldi**: Sander, Ats, Aaron. Mitte grupivestlusse, mitte GitHubi. Pärast häkatoni kustuta võtmed ja tee uued.
