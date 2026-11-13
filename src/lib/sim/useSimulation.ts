@@ -44,6 +44,8 @@ export function useSimulation(scenario: PublicScenario) {
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [endingText, setEndingText] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const [levels, setLevels] = useState<{ caller: number; dispatcher: number }>({ caller: 0, dispatcher: 0 });
+  const levelsRef = useRef({ caller: 0, dispatcher: 0 });
 
   // Refid: tick ja voice callback'id loevad alati värsket seisu.
   const voiceRef = useRef<VoiceProvider | null>(null);
@@ -240,6 +242,12 @@ export function useSimulation(scenario: PublicScenario) {
               void endCall('dispatcher_ended');
             }
           },
+          onLevel(speaker, level) {
+            // Uuenda olekut ainult märgatava muutuse korral (muidu renderdaks 20 korda sekundis).
+            if (Math.abs(levelsRef.current[speaker] - level) < 0.12 && level !== 0) return;
+            levelsRef.current = { ...levelsRef.current, [speaker]: level };
+            setLevels(levelsRef.current);
+          },
           onError(err) {
             setError(err.message);
           },
@@ -284,6 +292,7 @@ export function useSimulation(scenario: PublicScenario) {
     outcome,
     endingText,
     error,
+    levels,
     beginIntro,
     markReady,
     startCall,
