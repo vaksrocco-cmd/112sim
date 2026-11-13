@@ -16,7 +16,7 @@ const IDLE_RESTART_MS = 6000; // vaikuses alusta salvestust uuesti, et lause ett
 /** Päästekorraldaja toon: mida ebamäärasem helistaja, seda kindlam ja valjem hääl. */
 type Emotion = 'calm' | 'firm' | 'urgent';
 const TAGS: Record<string, Emotion> = { rahulik: 'calm', kindel: 'firm', tungiv: 'urgent' };
-const VOLUME: Record<Emotion, number> = { calm: 0.7, firm: 0.88, urgent: 1 };
+const VOLUME: Record<Emotion, number> = { calm: 1, firm: 1.35, urgent: 1.8 };
 
 type Msg = { role: 'user' | 'assistant'; content: string };
 type TurnLine =
@@ -38,7 +38,10 @@ export function createCascadeVoice(): VoiceProvider {
   let speakGen = 0;
   let speakChain: Promise<void> = Promise.resolve();
   let speaking = 0;
-  let currentAudio: HTMLAudioElement | null = null;
+  let currentSource: AudioBufferSourceNode | null = null;
+  let keepAlive: HTMLAudioElement | null = null;
+  /** Kompressor väljundi ees: lubab valjemat häält ilma moonutuseta. */
+  let output: AudioNode | null = null;
 
   // ── mikrofon ──
   let stream: MediaStream | null = null;
@@ -51,34 +54,49 @@ export function createCascadeVoice(): VoiceProvider {
   const emit = (seg: Omit<TranscriptSegment, 'id'>) => ev?.onSegment({ ...seg, id: id() });
 
   // ───────── Kõnesüntees ─────────
-  async function fetchTts(text: string, emotion: Emotion): Promise<string | null> {
+  async function fetchTts(text: string, emotion: Emotion): Promise<ArrayBuffer | null> {
     try {
       const res = await fetch('/api/voice/tts', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ text, emotion }),
       });
-      return res.ok ? URL.createObjectURL(await res.blob()) : null;
+      return res.ok ? await res.arrayBuffer() : null;
     } catch {
       return null;
     }
   }
 
-  function playUrl(url: string, volume: number): Promise<void> {
-    return new Promise((resolve) => {
-      const a = new Audio(url);
-      a.volume = volume;
-      currentAudio = a;
-      const done = () => {
-        URL.revokeObjectURL(url);
-        if (currentAudio === a) currentAudio = null;
-        resolve();
-      };
-      a.onended = done;
-      a.onerror = done;
-      a.onpause = done;
-      a.play().catch(done);
-    });
+  /**
+   * Mängib heli Web Audio kaudu. Telefonis EI tohi iga lause jaoks luua uut <audio> elementi:
+   * brauser lubab heli ainult kasutaja puudutuse ajal, hilisem play() blokeeritakse vaikselt.
+   * AudioContext avatakse helistamisnupu vajutusel (vt start) ja jääb kogu kõneks lahti.
+   * Tagastab false, kui heli ei õnnestunud mängida (siis proovitakse brauseri häält).
+   */
+  async function playBuffer(data: ArrayBuffer, volume: number): Promise<boolean> {
+    const ctx = audioCtx;
+    if (!ctx) return false;
+    try {
+      if (ctx.state !== 'running') await ctx.resume();
+      const buffer = await ctx.decodeAudioData(data.slice(0));
+      await new Promise<void>((resolve) => {
+        const src = ctx.createBufferSource();
+        const gain = ctx.createGain();
+        gain.gain.value = volume;
+        src.buffer = buffer;
+        src.connect(gain).connect(output ?? ctx.destination);
+        currentSource = src;
+        src.onended = () => {
+          if (currentSource === src) currentSource = null;
+          resolve();
+        };
+        src.start();
+      });
+      return true;
+    } catch (e) {
+      console.warn('[voice] heli mängimine ebaõnnestus', e);
+      return false;
+    }
   }
 
   function playBrowser(text: string): Promise<void> {
@@ -99,13 +117,10 @@ export function createCascadeVoice(): VoiceProvider {
     speaking++;
     speakChain = speakChain.then(async () => {
       try {
-        const url = await urlP;
-        if (gen !== speakGen || stopped) {
-          if (url) URL.revokeObjectURL(url);
-          return;
-        }
+        const data = await urlP;
+        if (gen !== speakGen || stopped) return;
         ev?.onLevel?.('dispatcher', 0.6);
-        await (url ? playUrl(url, VOLUME[emotion]) : playBrowser(text));
+        if (!(data && (await playBuffer(data, VOLUME[emotion])))) await playBrowser(text);
       } finally {
         speaking--;
         if (!speaking) {
@@ -118,7 +133,11 @@ export function createCascadeVoice(): VoiceProvider {
 
   function cancelSpeech() {
     speakGen++;
-    currentAudio?.pause();
+    try {
+      currentSource?.stop();
+    } catch {
+      /* juba lõppenud */
+    }
     if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
   }
 
@@ -276,7 +295,7 @@ export function createCascadeVoice(): VoiceProvider {
 
   function startVad() {
     if (!stream) return;
-    audioCtx = new AudioContext();
+    if (!audioCtx) return;
     const analyser = audioCtx.createAnalyser();
     analyser.fftSize = 1024;
     audioCtx.createMediaStreamSource(stream).connect(analyser);
@@ -334,6 +353,47 @@ export function createCascadeVoice(): VoiceProvider {
       dispatched = false;
       messages.length = 0;
 
+      // Heli tuleb avada KOHE, veel helistamisnupu vajutuse sees (enne ühtegi await'i): muidu on telefonis vaikus.
+      try {
+        const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        audioCtx = new Ctx();
+        void audioCtx.resume();
+        const comp = audioCtx.createDynamicsCompressor();
+        comp.connect(audioCtx.destination);
+        output = comp;
+        const silent = audioCtx.createBufferSource();
+        silent.buffer = audioCtx.createBuffer(1, 1, 22050);
+        silent.connect(audioCtx.destination);
+        silent.start();
+      } catch {
+        audioCtx = null;
+      }
+      // iPhone'i hääletu režiim summutab Web Audio. Vaikne korduv <audio> element, mis käivitatakse samas puudutuses,
+      // lülitab heliseansi "taasesituse" peale, nii et päästekorraldajat on kuulda ka siis, kui telefon on hääletu.
+      try {
+        const n = 2205;
+        const wav = new DataView(new ArrayBuffer(44 + n * 2));
+        const put = (o: number, t: string) => [...t].forEach((c, i) => wav.setUint8(o + i, c.charCodeAt(0)));
+        put(0, 'RIFF');
+        wav.setUint32(4, 36 + n * 2, true);
+        put(8, 'WAVEfmt ');
+        wav.setUint32(16, 16, true);
+        wav.setUint16(20, 1, true);
+        wav.setUint16(22, 1, true);
+        wav.setUint32(24, 22050, true);
+        wav.setUint32(28, 44100, true);
+        wav.setUint16(32, 2, true);
+        wav.setUint16(34, 16, true);
+        put(36, 'data');
+        wav.setUint32(40, n * 2, true);
+        keepAlive = new Audio(URL.createObjectURL(new Blob([wav.buffer], { type: 'audio/wav' })));
+        keepAlive.loop = true;
+        keepAlive.setAttribute('playsinline', '');
+        void keepAlive.play().catch(() => undefined);
+      } catch {
+        keepAlive = null;
+      }
+
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
@@ -376,8 +436,11 @@ export function createCascadeVoice(): VoiceProvider {
       recorder = null;
       stream?.getTracks().forEach((t) => t.stop());
       stream = null;
+      keepAlive?.pause();
+      keepAlive = null;
       await audioCtx?.close().catch(() => undefined);
       audioCtx = null;
+      output = null;
     },
   };
 }

@@ -16,7 +16,7 @@ export function VideoStage({ state, compact, children }: { state?: ScenarioState
     <div className={cx('relative w-full flex-none overflow-hidden rounded-shell bg-surface', compact ? 'h-[34dvh] min-h-[170px]' : 'h-[52dvh] min-h-[240px]')}>
       {wantVideo && state ? (
         <video
-          key={id}
+          key={`clip-${id}`}
           className={cx('gr-motion absolute inset-0 size-full object-cover', loaded[id] ? 'opacity-100' : 'opacity-0')}
           src={state.clipUrl}
           autoPlay
@@ -28,7 +28,7 @@ export function VideoStage({ state, compact, children }: { state?: ScenarioState
         />
       ) : null}
       {children ? <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-bg/80 to-transparent px-4 pb-8 pt-4">{children}</div> : null}
-      <p key={id} className="gr-enter absolute inset-x-0 bottom-0 bg-gradient-to-t from-bg/90 to-transparent px-4 pb-4 pt-10 text-[15px] font-medium leading-5 text-fg">
+      <p key={`caption-${id}`} className="gr-enter absolute inset-x-0 bottom-0 bg-gradient-to-t from-bg/90 to-transparent px-4 pb-4 pt-10 text-[15px] font-medium leading-5 text-fg">
         {state?.caption ?? ''}
       </p>
     </div>
