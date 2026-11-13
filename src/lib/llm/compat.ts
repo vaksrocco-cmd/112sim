@@ -16,6 +16,8 @@ export interface ChatClientConfig {
   keyEnv: string;
   /** Mõtlemispingutus: mida saata `reasoning_effort` väljal (undefined = ära saada). */
   effort: (requested?: string) => string | undefined;
+  /** Sama, kui päringus on tööriistad (Chat Completions ei luba mõne mudeliga tööriistu koos mõtlemisega). */
+  toolEffort?: () => string | undefined;
 }
 
 interface ChatResponse {
@@ -101,6 +103,7 @@ export function createChatClient(cfg: ChatClientConfig) {
         ...baseBody(opts),
         ...(opts.tools?.length
           ? {
+              ...(cfg.toolEffort?.() ? { reasoning_effort: cfg.toolEffort() } : {}),
               tools: opts.tools.map((t) => ({
                 type: 'function',
                 function: { name: t.name, description: t.description, parameters: t.parameters },

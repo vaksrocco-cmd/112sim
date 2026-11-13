@@ -14,7 +14,7 @@ export async function POST(req: Request) {
   if ((process.env.TTS_PROVIDER || 'tartunlp') !== 'tartunlp') return new Response('tts_not_configured', { status: 501 });
 
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 8000);
+  const timer = setTimeout(() => ctrl.abort(), 15000);
   try {
     const res = await fetch('https://api.tartunlp.ai/text-to-speech/v2', {
       method: 'POST',

@@ -11,6 +11,9 @@ export const openai = createChatClient({
   keyEnv: 'OPENAI_API_KEY',
   // Kõik mudelid ei toeta kõiki väärtusi: saadame ainult siis, kui see on keskkonnamuutujaga sisse lülitatud.
   effort: () => process.env.OPENAI_FAST_REASONING_EFFORT || undefined,
+  // gpt-6.1-terra: "Function tools with reasoning_effort are not supported ... set reasoning_effort to 'none'".
+  // Päästekorraldaja (voog + tööriistad) käib seega ilma mõtlemiseta, mis on ka kõige kiirem.
+  toolEffort: () => process.env.OPENAI_TOOLS_REASONING_EFFORT || 'none',
 });
 
 export const openaiModels = {
