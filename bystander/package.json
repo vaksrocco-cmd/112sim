@@ -1,0 +1,7 @@
+{
+  "name": "bystander",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "First-aid training simulation: react to an emergency and practise the 112 call."
+}

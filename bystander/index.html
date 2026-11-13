@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bystander</title>
+  <meta name="description" content="Practise the first five minutes of an emergency: react to what you see and make the 112 call.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="landing">
+  <nav class="pill-nav" aria-label="Main">
+    <a class="brand" href="#top"><span class="mark" aria-hidden="true"></span>Bystander</a>
+    <a class="nav-link" href="#how">How it works</a>
+    <a class="nav-link" href="#scenarios">Scenarios</a>
+    <button class="btn btn-primary btn-sm" data-start>Start scenario</button>
+  </nav>
+
+  <header class="hero" id="top">
+    <div class="hero-copy">
+      <div class="hero-brand"><span class="mark" aria-hidden="true"></span>Bystander</div>
+      <h1>Know what to do in the five minutes before the ambulance arrives.</h1>
+      <p class="lead">Someone collapses in front of you. React, call 112 and keep them alive until help comes.</p>
+      <div class="hero-actions">
+        <button class="btn btn-primary" data-start>Start the scenario <span aria-hidden="true">→</span></button>
+        <a class="btn btn-ghost" href="#how">How it works</a>
+      </div>
+      <p class="fineprint">Takes about three minutes. Type or speak your side of the call.</p>
+      <div class="notice"><strong>Training simulation.</strong> Nothing here contacts real emergency services.</div>
+    </div>
+
+    <div class="hero-card-wrap" aria-hidden="true">
+      <div class="hero-card hero-card-back"></div>
+      <div class="hero-card">
+        <span class="mono">01 / 01</span>
+        <svg class="ecg" viewBox="0 0 300 80" preserveAspectRatio="none">
+          <path d="M0 40 H70 l8 -6 l8 6 h14 l6 10 l10 -44 l10 58 l8 -24 h18 l10 -10 l12 10 H300" />
+        </svg>
+        <div class="hero-card-text">
+          <h2>He just collapsed.</h2>
+          <p>What do you do first?</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="strip" id="scenarios">
+    <span class="live">Cardiac arrest</span>
+    <span>Severe bleeding</span>
+    <span>Choking</span>
+    <span>Stroke</span>
+    <span>Seizure</span>
+    <span>Road accident</span>
+  </div>
+
+  <section class="section" id="how">
+    <p class="eyebrow">01 · How it works</p>
+    <h2 class="section-title">Most people freeze. Practice is what stops that.</h2>
+    <div class="steps">
+      <article><span class="mono">React</span><h3>Watch what happens</h3><p>A short clip puts you at the scene. You decide what to check and what to leave alone.</p></article>
+      <article><span class="mono">Call</span><h3>Talk to 112</h3><p>An AI dispatcher asks what a real one would. The situation changes while you talk.</p></article>
+      <article><span class="mono">Act</span><h3>Keep them alive</h3><p>Follow the dispatcher's instructions with your own hands until the ambulance arrives.</p></article>
+      <article><span class="mono">Review</span><h3>See what you missed</h3><p>A debrief shows what you got right, what cost time and the one thing to remember.</p></article>
+    </div>
+    <div class="cta-row">
+      <button class="btn btn-primary" data-start>Start the scenario <span aria-hidden="true">→</span></button>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <span class="brand"><span class="mark" aria-hidden="true"></span>Bystander</span>
+    <span>In a real emergency, call 112.</span>
+  </footer>
+</div>
+
+<section id="sim" hidden aria-label="Scenario">
+  <header class="sim-bar">
+    <span class="brand"><span class="mark" aria-hidden="true"></span>Bystander</span>
+    <span class="chip" id="sim-loc"></span>
+    <span class="timer mono" id="timer" aria-label="Elapsed time">00:00</span>
+    <span class="spacer"></span>
+    <button class="btn btn-ghost btn-sm" id="voice-toggle" aria-pressed="true">Voice on</button>
+    <button class="btn btn-ghost btn-sm" id="exit">Exit</button>
+  </header>
+
+  <div class="sim-grid">
+    <div class="scene" id="scene" data-clip="collapse">
+      <video id="clip" muted playsinline loop hidden></video>
+      <div class="scene-ph" id="scene-ph">
+        <svg viewBox="0 0 400 220" role="img" aria-label="A man lying on the pavement">
+          <g class="amb"><rect x="300" y="96" width="84" height="46" rx="6"/><rect class="amb-light" x="332" y="86" width="20" height="10" rx="3"/><circle cx="318" cy="146" r="9"/><circle cx="366" cy="146" r="9"/></g>
+          <line x1="20" y1="170" x2="380" y2="170" class="ground"/>
+          <g class="body">
+            <circle cx="112" cy="148" r="16"/>
+            <rect class="torso" x="132" y="134" width="96" height="30" rx="14"/>
+            <rect x="224" y="142" width="88" height="20" rx="10"/>
+          </g>
+          <g class="hands"><rect x="166" y="96" width="28" height="40" rx="10"/></g>
+        </svg>
+        <span class="mono clip-tag" id="clip-tag"></span>
+      </div>
+      <p class="caption" id="caption" aria-live="polite"></p>
+    </div>
+
+    <aside class="panel" id="panel"></aside>
+  </div>
+</section>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
