@@ -65,6 +65,8 @@ export async function POST(req: Request) {
     async start(controller) {
       const send = (o: unknown) => controller.enqueue(enc.encode(JSON.stringify(o) + '\n'));
       try {
+        let spoke = false;
+        const used: string[] = [];
         for await (const delta of llmStream({
           tier: 'fast',
           system,
@@ -73,9 +75,31 @@ export async function POST(req: Request) {
           maxTokens: 1024,
           tools,
           signal: req.signal,
-          onToolUse: (name, input) => send({ type: 'tool', name, input }),
+          onToolUse: (name, input) => {
+            used.push(name);
+            send({ type: 'tool', name, input });
+          },
         })) {
+          if (delta.trim()) spoke = true;
           send({ type: 'text', delta });
+        }
+        // Mudel vastab tihti ainult tööriistakutsega. Helistaja ei tohi kuulda vaikust:
+        // küsi kohe juurde lause, mida öelda (või kasuta kindlat lõpulauset).
+        if (!spoke && used.includes('end_call')) {
+          send({ type: 'text', delta: 'Kiirabi on kohal. Võite kõne lõpetada.' });
+        } else if (!spoke && used.includes('dispatch_ambulance')) {
+          for await (const delta of llmStream({
+            tier: 'fast',
+            system:
+              system +
+              '\n\nOLEK: saatsid just kiirabi välja. Ütle nüüd helistajale, et kiirabi on teel, ja jätka kõnet (järgmine küsimus või üks juhis). Ära kutsu ühtegi tööriista.',
+            messages,
+            effort: 'low',
+            maxTokens: 1024,
+            signal: req.signal,
+          })) {
+            send({ type: 'text', delta });
+          }
         }
         send({ type: 'done' });
       } catch (e) {
