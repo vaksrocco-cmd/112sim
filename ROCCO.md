@@ -54,12 +54,14 @@ Ehitajate juhend (Sander, Ats, Aaron) on `CONTRIBUTING.md`. Saada neile see link
 1. platform.openai.com → **API keys → Create new secret key** (nimi `112sim`). Kopeeri võti kohe: hiljem seda enam ei näe.
 2. **Billing:** kontrolli, et kontol on krediiti. **Limits** lehel pane kuu kulupiir (nt 30 $), et vigane tsükkel krediiti ära ei sööks.
 3. Võti läheb Vercelisse (B4) ja `.env.local`-i muutujana `OPENAI_API_KEY`.
+4. **Groq (kõnetuvastus, tasuta):** console.groq.com → **API Keys → Create API Key** → muutuja `GROQ_API_KEY`. Ilma selleta töötab kõne ainult tekstikastiga.
+5. Kontroll: ava `/api/health` (nt https://112sim.vercel.app/api/health). `openai` ja `groq` peavad olema `true`.
 
 ### B3. Supabase ✅ tabel on loodud
 Projekt „vaksrocco-cmd's Project“ organisatsioonis „viimsi AI hack“ (eu-west-2). Tabel `call_sessions` on olemas, RLS sees. **Jääb sulle:** Project Settings → API → kopeeri *Project URL* ja *service_role* võti Vercelisse (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`). Ilma nendeta hoitakse sessioone ainult serveri mälus.
 
 ### B4. Vercel ✅ projekt on üleval: https://112sim.vercel.app
-Projekt `112sim` on repoga seotud; iga `main`-i merge avaldatakse automaatselt ja igale PR-ile tekib eelvaate link. **Jääb sulle:** projekt → **Environment Variables** → lisa `OPENAI_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (Production ja Preview) → Deployments → viimase rea „…“ → **Redeploy**. `NEXT_PUBLIC_VOICE_PROVIDER` jäta lisamata (vaikimisi `mock`), kuni Sander ütleb, et hääl töötab; siis pane `openai`.
+Projekt `112sim` on repoga seotud; iga `main`-i merge avaldatakse automaatselt ja igale PR-ile tekib eelvaate link. **Jääb sulle:** projekt → **Environment Variables** → lisa `OPENAI_API_KEY`, `GROQ_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (Production ja Preview) → Deployments → viimase rea „…“ → **Redeploy**. `NEXT_PUBLIC_VOICE_PROVIDER` jäta lisamata (vaikimisi `mock`), kuni hääl on proovitud aadressil `?voice=cascade`; siis pane `cascade`.
 
 ### B5. Võtmed tiimile
 Tee `.env.local` (`.env.example` täidetud väärtustega) ja saada see **privaatsõnumiga igaühele eraldi**: Sander, Ats, Aaron. Mitte grupivestlusse, mitte GitHubi. Pärast häkatoni kustuta võtmed ja tee uued.

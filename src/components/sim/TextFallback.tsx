@@ -16,7 +16,7 @@ export function TextFallback({ onSend, disabled }: { onSend: (text: string) => v
     >
       <Stack direction="row" gap={2}>
         <input
-          className="flex-1 rounded-card border border-border bg-surface-2 px-3 py-2 text-fg"
+          className="flex-1 rounded-full border border-border-strong bg-surface px-4 py-2 text-fg placeholder:text-subtle"
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Trüki, kui mikrofon ei tööta"

@@ -3,13 +3,13 @@ import { cx } from './cx';
 
 type Tone = 'neutral' | 'ok' | 'warn' | 'danger' | 'accent';
 const tones: Record<Tone, string> = {
-  neutral: 'text-muted border-border',
-  ok: 'text-ok border-ok',
-  warn: 'text-warn border-warn',
-  danger: 'text-danger border-danger',
-  accent: 'text-accent border-accent',
+  neutral: 'bg-surface-2 text-muted',
+  ok: 'bg-ok-soft text-ok',
+  warn: 'bg-warn-soft text-warn',
+  danger: 'bg-danger-soft text-danger',
+  accent: 'bg-accent-soft text-accent',
 };
 
 export function Badge({ tone = 'neutral', children }: { tone?: Tone; children: ReactNode }) {
-  return <span className={cx('inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium', tones[tone])}>{children}</span>;
+  return <span className={cx('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium', tones[tone])}>{children}</span>;
 }

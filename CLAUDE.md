@@ -34,7 +34,7 @@ Kontrolli `git branch --show-current`. Kui haru ei ole üks allolevatest, küsi 
 7. **Iga moodul töötab `mockVoice`-i ja fixture'itega** ilma teiste mooduliteta.
 8. **UI:** ainult `src/components/ui/` primitiivid ja tokenid. Kõvakodeeritud värve ja fonte ei kasutata. Välimuse lihvib integraator.
 9. **Keel:** kasutajale nähtav tekst eesti keeles; kood, muutujad ja commitid inglise keeles.
-10. **API-de nimed võta dokumentatsioonist, mitte mälust** (OpenAI Realtime: https://developers.openai.com/api/docs/guides/realtime-webrtc; tekstimudelid: kasuta `@/lib/llm`).
+10. **API-de nimed võta dokumentatsioonist, mitte mälust** (tekstimudelid: kasuta `@/lib/llm`; Groq kõnetuvastus: https://console.groq.com/docs/speech-to-text; OpenAI Realtime: https://developers.openai.com/api/docs/guides/realtime-webrtc).
 11. **Uusi sõltuvusi ega migratsioone ei lisa.** Kui vajad paketti, peatu ja ütle inimesele.
 12. Kui see fail või `KNOWLEDGE.md` tundub vale või puudulik, **ära improviseeri**: kirjelda probleemi inimesele.
 

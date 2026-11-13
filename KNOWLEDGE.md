@@ -1,7 +1,9 @@
 # 112Sim: projekti teadmusfail (KNOWLEDGE.md)
 
-**Versioon 2.4 · 13.11.2026 · omanik: Rocco (integraator) · repo: https://github.com/vaksrocco-cmd/112sim**
+**Versioon 2.5 · 13.11.2026 · omanik: Rocco (integraator) · repo: https://github.com/vaksrocco-cmd/112sim**
 
+> **2.5:** hääle põhivalik on nüüd **kaskaad** (`?voice=cascade`): mikrofon → `/api/voice/stt` (**Groq Whisper**, eesti keel, tasuta tase) → `/api/voice/turn` (OpenAI, voog + tööriistad) → `/api/voice/tts` (**TartuNLP**, tasuta, eesti keel) → kõlar. Groqi kasutame **ainult kõnetuvastuseks**, mitte LLM-ina; Groqi kõnesüntees eesti keelt ei oska. Kõik otsused (päästekorraldaja, kohtunik, analüütik) teeb OpenAI. Kohtunik, hindamine, režissöör ja analüütik on implementeeritud; `/api/health` näitab, millised võtmed on seadistatud. Kujundus kasutab Graphite disainisüsteemi tumedat teemat (15.3).
+>
 > **2.4:** kõik AI käib **OpenAI API** kaudu (D-7, D-13), sest tiimil on OpenAI krediit olemas. Hääle põhivalik on jälle **OpenAI Realtime (WebRTC)**, kaskaad jääb varuks. Ühine tekstimudeli klient on `src/lib/llm/openai.ts` (impordi `@/lib/llm`). Versiooni 2.3 Claude'i-põhine plaan on tühistatud.
 >
 > **2.3 (tühistatud):** kõik AI käib **Claude API** kaudu (D-7, D-13). Hääl on kaskaad: brauseri kõnetuvastus (et-EE) → `/api/voice/turn` (Claude, voog, tööriistad) → `/api/voice/tts` → kõlar. Ühine klient `src/lib/llm/claude.ts`. Karkass on olemas (23.1).
@@ -304,11 +306,11 @@ Eesmärk: näidata demos, et süsteem ei ole ühe vestluse jaoks ette programmee
 | D-4 | Tõde ja võtmed **ainult serveris** | Turvalisus; brauser saab ainult ajutise Realtime'i võtme; kõik muud päringud käivad meie API marsruutide kaudu | kinnitatud |
 | D-5 | Stsenaariumid on **repo JSON-failides**, mitte andmebaasis | Üks migratsioon, ei mingit SQL-i kopeerimist | kinnitatud |
 | D-6 | Päris telefonivõrku ei ühendata | Lihtsam, odavam, välistab ühenduse päris 112-ga | kinnitatud |
-| D-7 | Hääl: **OpenAI Realtime (WebRTC)** põhivalikuna, varuks kaskaad (brauseri kõnetuvastus → tekstimudel → TTS), tekstirežiim ja `mockVoice` | Üks ühendus, madal viivitus, tööriistakutsed; valik on peidetud `VoiceProvider` taha | **ootab hääletesti** |
+| D-7 | Hääl: **kaskaad** põhivalikuna (Groq Whisper `et` → OpenAI tekstimudel → TartuNLP kõnesüntees), varuks OpenAI Realtime (kui Sander selle valmis teeb), tekstirežiim ja `mockVoice` | Eesti keele kõnetuvastus ja kõnesüntees on tasuta ja kontrollitavad; valik on peidetud `VoiceProvider` taha | **ootab hääletesti** |
 | D-8 | Moodulid ehitavad funktsionaalsuse `components/ui` primitiividega; visuaalse lihvi teeb integraator | Tiimi kokkulepe; väldib stiilikonflikte | kinnitatud |
 | D-9 | Klipid: filmitud või AI-genereeritud | vt 5.3 | **lahtine** |
 | D-10 | Stsenaarium 01 on vanaema insult, 02 jalgrattur | 01-s on seisundimuutus, mis on toote tuum | kinnitatud |
-| D-13 | Kõik LLM-kutsed käivad **OpenAI API** kaudu. Tekstimudelitel üks klient `src/lib/llm/openai.ts` (fetch, ilma SDK-ta; impordi `@/lib/llm`): `llmText`, `llmJson`, `llmStream`. Mudelid `OPENAI_FAST_MODEL` ja `OPENAI_SMART_MODEL` | Üks võti, üks arve, üks koht vigade käsitlemiseks; pakkuja vahetus puudutab ainult seda faili | kinnitatud |
+| D-13 | Kõik LLM-kutsed käivad **OpenAI API** kaudu. Tekstimudelitel üks klient `src/lib/llm/` (fetch, ilma SDK-ta; impordi `@/lib/llm`): `llmText`, `llmJson`, `llmStream` parameetriga `tier: 'fast' | 'smart'` (mudelid `OPENAI_FAST_MODEL` ja `OPENAI_SMART_MODEL`). Groq (`groqTranscribe`) on ainult kõnetuvastus | Üks võti, üks arve, üks koht vigade käsitlemiseks; pakkuja vahetus puudutab ainult seda faili | kinnitatud |
 | D-11 | **Repo on avalik** | Tasuta GitHubis saab haru lukustada ainult avalikus repos; tasuta Vercel ei avalda privaatsest repost teiste autorite commit'e | kinnitatud |
 | D-12 | **Merge commit'id, ei rebase'i ega squash'i**; igaüks jääb oma harusse | Kõige vähem kohti, kus algaja või agent saab ajaloo sassi ajada; force-push'i pole kunagi vaja | kinnitatud |
 
@@ -489,7 +491,7 @@ export interface VoiceProvider {
 
 **Implementatsioonid ja varujärjekord:**
 
-1. **`openaiRealtime.ts` (põhivalik).** Voog OpenAI ametliku WebRTC juhendi järgi:
+1. **`openaiRealtime.ts` (varu, pooleli).** Voog OpenAI ametliku WebRTC juhendi järgi:
    - Server (`/api/realtime/session`) teeb `POST https://api.openai.com/v1/realtime/client_secrets` päris võtmega ja sessiooni seadistusega (mudel, hääl, juhised, tööriistad, sisendi transkriptsioon, VAD) ning tagastab ajutise võtme (`value`).
    - Brauser loob `RTCPeerConnection`'i, lisab mikrofoni raja, avab andmekanali, teeb SDP pakkumise ja saadab selle `POST https://api.openai.com/v1/realtime/calls` ajutise võtmega (`Content-Type: application/sdp`). Vastus on SDP answer.
    - Andmekanali sündmustest teeb adapter meie `TranscriptSegment`-id ja tööriistakutsed. **Sündmuste ja seadistusväljade täpsed nimed võta dokumentatsioonist, ära kirjuta mälu järgi**: https://developers.openai.com/api/docs/guides/realtime-webrtc
@@ -497,10 +499,12 @@ export interface VoiceProvider {
    - `sendCue`: lisa vestlusesse süsteemisõnum ja küsi uus vastus.
    - `startMs` võetakse hetkest, mil kõne algus tuvastati; `endMs` hetkest, mil lause lõppes. Helistaja transkript võib saabuda hiljem kui päästekorraldaja vastus: **sorteeri alati `startMs` järgi**.
    - Mudel ja hääl tulevad muutujatest `REALTIME_MODEL` (vaikimisi `gpt-realtime-2.1`, odavam `gpt-realtime-2.1-mini`) ja `REALTIME_VOICE` (vaikimisi `marin`). Karkassis on `/api/realtime/session` juba olemas minimaalse seadistusega; juhised, tööriistad ja transkriptsioon lisab Sander.
-2. **`cascade.ts` (varu 1).** Kui Realtime'i eesti keel ei sobi. Kolm lüli:
-   - **Kõnetuvastus brauseris:** Web Speech API (`webkitSpeechRecognition`, `lang = 'et-EE'`, `interimResults = true`). Töötab Chrome'is. Uuendus: Soniox (`SONIOX_API_KEY`).
+2. **`cascade.ts` (põhivalik, valmis).** Kolm lüli:
+   - **Kõnetuvastus:** brauser tuvastab lause lõpu (helitugevus, 750 ms paus), salvestab lause `MediaRecorder`-iga ja saadab `POST /api/voice/stt` (multipart `audio`) → Groq Whisper (`whisper-large-v3-turbo`, `language=et`) → `{ text }`. Heli ei salvestata. Vihjesse (`prompt`) ei panda kunagi stsenaariumi tõde.
+   - **Vahelerääkimine:** kui helistaja hakkab rääkima, jääb päästekorraldaja vait ja pooleliolev vastus katkestatakse.
+   - Avalause „Häirekeskus kuuleb, mis juhtus?“ on fikseeritud ja tuleb kohe, mudelit ootamata. Kui mikrofoni ei lubata, jätkub kõne tekstirežiimis.
    - **Päästekorraldaja aju:** `POST /api/voice/turn` `{ scenarioId, messages }` → NDJSON voog (`text` / `tool` / `done` / `error`). **Olemas karkassis:** kiire tekstimudel (`llmStream`), prompt `dispatcher.et.md`, tööriistad `dispatch_ambulance` ja `end_call`. Helistaja laused on `user`, päästekorraldaja laused `assistant`, märguanne on `user` sõnum, mis algab `[SÜSTEEM]`.
-   - **Kõnesüntees:** `POST /api/voice/tts` `{ text }` → heli. Pakkuja valib Sander (TartuNLP, ElevenLabs või brauseri `speechSynthesis`). **API kuju võta pakkuja dokumentatsioonist.**
+   - **Kõnesüntees:** `POST /api/voice/tts` `{ text }` → `audio/wav`. Vaikimisi TartuNLP avalik API (`POST https://api.tartunlp.ai/text-to-speech/v2` `{ text, speaker }`, võtit pole vaja); vea korral brauseri `speechSynthesis`. Lausete kaupa: esimene lause mängib enne, kui terve vastus on valmis.
    - Sama marsruut `/api/voice/turn` teenindab ka **tekstirežiimi** (`sendCallerText`): helistaja trükib, päästekorraldaja vastab tekstina.
 3. **`elevenlabs` (varu 2).** ElevenLabs Agents'i SDK; sama liides. Ainult siis, kui eelmised ei tööta.
 4. **`mockVoice.ts` (kohustuslik, valmis karkassis).** Mängib fixture'i (`fixtures/transcripts/*.json`) õigete ajastustega ette, ilma mikrofoni ja API-ta. Nii saab iga moodul areneda häälest sõltumata ja laval on hädavaru.
@@ -863,6 +867,8 @@ Helisalvestisi ei salvestata. Kui Supabase ei vasta, salvestatakse sessioon brau
 | `/api/realtime/session` | POST | `{ scenarioId }` | `{ ephemeralKey, model }` | hääl |
 | `/api/voice/turn` | POST | `{ scenarioId, messages }` | NDJSON voog (`text`, `tool`, `done`, `error`) | hääl |
 | `/api/voice/tts` | POST | `{ text }` | heli | hääl |
+| `/api/voice/stt` | POST | multipart `audio` | `{ text }` | hääl |
+| `/api/health` | GET | — | millised API-d on seadistatud (ilma võtmeteta) | integraator |
 | `/api/extract` | POST | `{ scenarioId, transcript, prevFacts, stateHistory }` | `{ facts: CallFacts }` | aju |
 | `/api/sessions` | POST | `CallSession` ilma `id`-ta | `{ id }` | integraator |
 | `/api/sessions/[id]` | GET | — | `CallSession` | integraator |
@@ -955,7 +961,7 @@ Ehitajate samm-sammuline juhend on `CONTRIBUTING.md`, integraatori oma `ROCCO.md
 
 ### 15.3 Disainisüsteem
 
-- Scaffold toob disainisüsteemi repost (link: ________) `src/components/ui/` alla tokenid ja primitiivid: `Button`, `Card`, `Badge`, `Panel`, `Stack`, `Heading`, `Text`, `Progress`.
+- Tokenid tulevad **Graphite** disainisüsteemi tumedast teemast (`tokens.css`, `[data-theme="dark"]`; https://github.com/fiko/graphite-design-system) ja on kirjas ainult failis `src/app/globals.css`. Graphite'i reeglid: toon enne jooni, pillikujulised nupud, üks põhinupp vaate kohta, summutatud olekuvärvid, font Geist. Scaffold toob `src/components/ui/` alla tokenid ja primitiivid: `Button`, `Card`, `Badge`, `Panel`, `Stack`, `Heading`, `Text`, `Progress`.
 - **Moodulid ehitavad funktsionaalsuse nende primitiividega** ega tegele välimusega. Kõvakodeeritud värve ja fonte ei kasutata. Visuaalse lihvi teeb integraator ühes korras, kui funktsionaalsus on koos.
 - **Toon:** tõsine ja rahulik. Tume taust, üks punane aktsentvärv (helistamise nupp, hoiatused), suur kiri, mis on loetav saali tagaosast. Animatsioonid (motion.dev) ainult seal, kus need aitavad aru saada: seisundi sulandus, kontrollnimekirja rea täitumine, skoori ilmumine.
 - Kõik kasutajale nähtav tekst on eesti keeles. Kood, muutujad ja commitid inglise keeles.
@@ -967,18 +973,17 @@ Ehitajate samm-sammuline juhend on `CONTRIBUTING.md`, integraatori oma `ROCCO.md
 Verceli projektis (Production + Preview) ja kohalikus `.env.local`-is. **Mitte kunagi repos.**
 
 ```
-OPENAI_API_KEY=                       # platform.openai.com, ainult serveris
-OPENAI_FAST_MODEL=gpt-6.1-terra       # kohtunik ja kaskaadi päästekorraldaja (odavam: gpt-6-luna)
+OPENAI_API_KEY=                       # platform.openai.com, ainult serveris: kõik otsused
+OPENAI_FAST_MODEL=gpt-6.1-terra       # kohtunik ja päästekorraldaja (odavam: gpt-6-luna)
 OPENAI_SMART_MODEL=gpt-6.1-sol        # analüütik
 OPENAI_FAST_REASONING_EFFORT=         # valikuline, nt low
-REALTIME_MODEL=gpt-realtime-2.1       # häälkõne (odavam: gpt-realtime-2.1-mini)
-REALTIME_VOICE=marin                  # vali hääletestis
-NEXT_PUBLIC_VOICE_PROVIDER=mock       # openai | cascade | elevenlabs | mock
-TTS_PROVIDER=browser                  # ainult kaskaadile: tartunlp | elevenlabs | browser
-TARTUNLP_SPEAKER=
-ELEVENLABS_API_KEY=
-ELEVENLABS_VOICE_ID=
-SONIOX_API_KEY=
+GROQ_API_KEY=                         # console.groq.com (tasuta tase), ainult serveris: AINULT kõnetuvastus
+GROQ_STT_MODEL=whisper-large-v3-turbo
+NEXT_PUBLIC_VOICE_PROVIDER=mock       # cascade | openai | mock
+TTS_PROVIDER=tartunlp                 # tartunlp (tasuta, võtit pole vaja) | browser
+TARTUNLP_SPEAKER=mari
+REALTIME_MODEL=gpt-realtime-2.1       # ainult ?voice=openai
+REALTIME_VOICE=marin
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=            # ainult serveris
 ```

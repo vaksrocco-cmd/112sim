@@ -47,7 +47,7 @@ export function SimulationView({ scenario }: { scenario: PublicScenario }) {
       <Stack gap={4}>
         <KnownCard scenario={scenario} />
         <LiveTranscript segments={sim.transcript} partial={sim.partial} />
-        <AiBrainPanel facts={sim.facts} />
+        <AiBrainPanel facts={sim.facts} scenario={scenario} events={sim.events} stateId={sim.stateId} callMs={sim.callMs} />
       </Stack>
     </div>
   );

@@ -14,7 +14,10 @@ export function LiveTranscript({
   partial: { speaker: Speaker; text: string } | null;
 }) {
   const end = useRef<HTMLDivElement>(null);
-  useEffect(() => end.current?.scrollIntoView({ block: 'end' }), [segments.length, partial?.text]);
+  // NB: uuemates brauserites tagastab scrollIntoView Promise'i; efekt ei tohi seda tagastada (muidu leht jookseb kokku).
+  useEffect(() => {
+    void end.current?.scrollIntoView({ block: 'nearest' });
+  }, [segments.length, partial?.text]);
 
   return (
     <Panel title="Kõne">
