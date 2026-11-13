@@ -70,14 +70,15 @@ export async function createSession(input: Omit<CallSession, 'id' | 'createdAt'>
 
 export async function getSession(id: string): Promise<CallSession | undefined> {
   const m = memory.get(id);
-  if (m) return m;
+  // Mälus olev koopia võib olla ilma analüüsita (analüüs salvestati teises serveri eksemplaris): siis küsi andmebaasist.
+  if (m && (m.analysis || !supabaseConfigured())) return m;
   if (!supabaseConfigured()) return undefined;
   try {
     const rows = await supabaseRequest<Row[]>(`call_sessions?id=eq.${encodeURIComponent(id)}&select=*`);
-    return rows[0] ? toSession(rows[0]) : undefined;
+    return rows[0] ? toSession(rows[0]) : m;
   } catch (e) {
     console.error('[sessions] get failed', e);
-    return undefined;
+    return m;
   }
 }
 

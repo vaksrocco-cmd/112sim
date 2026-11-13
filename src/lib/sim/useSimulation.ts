@@ -28,7 +28,9 @@ const EXTRACT_DEBOUNCE_MS = 300;
 /** Kui režissöör ei lõpeta, lõpetame ise maxCallMs + see varu järel. */
 const HARD_STOP_GRACE_MS = 5000;
 
-export function useSimulation(scenario: PublicScenario) {
+export function useSimulation(scenario: PublicScenario, opts: { onReport?: (id: string) => void } = {}) {
+  const onReportRef = useRef(opts.onReport);
+  onReportRef.current = opts.onReport;
   const router = useRouter();
 
   const firstLoop = scenario.states.find((s) => s.kind === 'loop') ?? scenario.states[0];
@@ -151,6 +153,7 @@ export function useSimulation(scenario: PublicScenario) {
           body: JSON.stringify({ sessionId: id }),
         });
         if (!analyzed.ok) console.warn('[sim] analyze failed', analyzed.status);
+        onReportRef.current?.(id);
         router.push(`/report/${id}`);
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
