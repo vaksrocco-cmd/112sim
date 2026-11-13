@@ -15,10 +15,10 @@ export function KnownCard({ scenario, compact }: { scenario: PublicScenario; com
       {envelope ? (
         <div className="rounded-inner bg-surface-2 px-3 py-2">
           <span className="text-[11px] font-medium text-subtle">Ümbrik laual</span>
-          {envelope.map((l) => (
-            <Text key={l} size="sm" mono className="break-words">
+          {envelope.map((l, i) => (
+            <p key={l} className={i === 0 ? 'break-words text-[15px] font-semibold leading-5 text-fg' : 'break-words text-[15px] leading-5 text-fg'}>
               {l}
-            </Text>
+            </p>
           ))}
         </div>
       ) : null}
