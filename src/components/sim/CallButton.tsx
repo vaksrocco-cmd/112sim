@@ -25,7 +25,7 @@ export function CallButton({ phase, onCall, onHangUp }: { phase: SimPhase; onCal
     );
   }
   return (
-    <Button size="lg" onClick={onCall} disabled={phase !== 'ready'}>
+    <Button variant="call" size="lg" onClick={onCall} disabled={phase !== 'ready'}>
       Helista 112 (simulatsioon)
     </Button>
   );

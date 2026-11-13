@@ -2,27 +2,45 @@
 
 /*
   KUJUNDUSE TOKENID. Ainus koht, kus värvid ja fondid on kirjas.
-  Ajutised väärtused: integraator asendab need Aaroni graphite-design-system tokenitega.
-  Komponendid kasutavad ainult neid klasse: bg-bg, bg-surface, bg-surface-2, border-border,
-  text-fg, text-muted, bg-accent, text-accent-fg, text-ok, text-warn, text-danger, rounded-card.
+  Väärtused on Graphite disainisüsteemi TUMEDAST teemast (tokens.css, [data-theme="dark"]):
+  toon enne jooni (canvas -> surface -> surface-sunken), pehmed nurgad, pillikujulised nupud,
+  summutatud olekuvärvid. Aktsent on Graphite'i "danger" (savipunane): meie ainus aktsent on hädaabikõne.
+  Komponendid kasutavad ainult neid klasse: bg-bg, bg-surface, bg-surface-2, border-border, border-border-strong,
+  text-fg, text-muted, text-subtle, bg-accent, text-accent-fg, bg-accent-soft, text-ok, text-warn, text-danger,
+  bg-ok-soft, bg-warn-soft, bg-danger-soft, rounded-card, rounded-inner, rounded-full.
 */
 @theme {
-  --color-bg: #0b0d10;
-  --color-surface: #14171c;
-  --color-surface-2: #1c2027;
-  --color-border: #2a2f38;
-  --color-fg: #e8eaed;
-  --color-muted: #9aa3ae;
-  --color-accent: #e5484d;
-  --color-accent-fg: #ffffff;
-  --color-ok: #30a46c;
-  --color-warn: #f5a524;
-  --color-danger: #e5484d;
+  --color-bg: #070606;            /* canvas */
+  --color-surface: #151414;       /* surface */
+  --color-surface-2: #1f1e1d;     /* surface-sunken */
+  --color-border: #2b2a29;        /* border */
+  --color-border-strong: #6e6b69; /* border-strong */
+  --color-fg: #f1f1f1;            /* ink */
+  --color-muted: #a9a6a3;         /* ink-muted */
+  --color-subtle: #8c8986;        /* ink-subtle */
+  --color-primary: #f1f1f1;       /* primary */
+  --color-primary-fg: #070606;    /* on-primary */
+  --color-accent: #eda79d;        /* danger */
+  --color-accent-fg: #070606;     /* on-danger */
+  --color-accent-soft: #331a17;   /* danger-soft */
+  --color-ok: #9fd0c8;            /* success */
+  --color-ok-soft: #14272a;       /* success-soft */
+  --color-warn: #e6c479;          /* warning-ink */
+  --color-warn-soft: #2b2412;     /* warning-soft */
+  --color-danger: #eda79d;        /* danger */
+  --color-danger-soft: #331a17;   /* danger-soft */
+  --color-info: #a3bce0;          /* info */
+  --color-info-soft: #1a2331;     /* info-soft */
 
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: var(--font-geist-sans), "Helvetica Neue", Arial, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, Menlo, monospace;
 
-  --radius-card: 14px;
+  --radius-inner: 12px;           /* radius-md */
+  --radius-card: 20px;            /* radius-lg */
+  --radius-shell: 28px;           /* radius-xl */
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.6);
 }
 
 html,
@@ -30,4 +48,17 @@ body {
   background: var(--color-bg);
   color: var(--color-fg);
   font-family: var(--font-sans);
+}
+
+/* Graphite: fookus on 2px joon 2px vahega igal interaktiivsel elemendil. */
+:focus-visible {
+  outline: 2px solid var(--color-fg);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
