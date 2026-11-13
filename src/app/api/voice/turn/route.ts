@@ -70,6 +70,7 @@ export async function POST(req: Request) {
       try {
         let spoke = false;
         const used: string[] = [];
+        let dispatchedAddress = '';
         for await (const delta of llmStream({
           tier: 'fast',
           system,
@@ -80,6 +81,7 @@ export async function POST(req: Request) {
           signal: req.signal,
           onToolUse: (name, input) => {
             used.push(name);
+            if (name === 'dispatch_ambulance') dispatchedAddress = String((input as { address?: unknown } | null)?.address ?? '');
             send({ type: 'tool', name, input });
           },
         })) {
@@ -91,18 +93,12 @@ export async function POST(req: Request) {
         if (!spoke && used.includes('end_call')) {
           send({ type: 'text', delta: '[rahulik] Kiirabi on kohal. Võite kõne lõpetada.' });
         } else if (!spoke && used.includes('dispatch_ambulance')) {
-          for await (const delta of llmStream({
-            tier: 'fast',
-            system:
-              system +
-              '\n\nOLEK: saatsid just kiirabi välja. Ütle nüüd helistajale, et kiirabi on teel, ja jätka kõnet (järgmine küsimus või üks juhis). Ära kutsu ühtegi tööriista.',
-            messages,
-            effort: 'low',
-            maxTokens: 1024,
-            signal: req.signal,
-          })) {
-            send({ type: 'text', delta });
-          }
+          // Teist mudelipäringut ei tehta (see lisas mitu sekundit vaikust): lause pannakse kokku tööriista aadressist.
+          const address = dispatchedAddress.trim();
+          send({
+            type: 'text',
+            delta: address ? `[rahulik] Kiirabi on teie poole teel. Kordan: ${address}. Kas õige?` : '[rahulik] Kiirabi on teie poole teel. Jääge liinile.',
+          });
         }
         send({ type: 'done' });
       } catch (e) {
