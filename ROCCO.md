@@ -31,15 +31,24 @@ Ehitajate juhend (Sander, Ats, Aaron) on `CONTRIBUTING.md`. Saada neile see link
 - `.gitignore` (võtmefailid ei lähe kunagi reposse), `.env.example`, PR-i mall, vea-issue mall.
 - `.github/CODEOWNERS`: iga muudatus vajab sinu heakskiitu.
 - CI (`.github/workflows/ci.yml`): igal PR-il typecheck, testid ja lint (kui `package.json` on olemas) ning kontroll, et ükski `.env` fail ei ole commit'itud.
-- `main` on lukus: ei kustutamist, ei force-push'i, muudatused ainult PR-iga ja sinu heakskiiduga. Sina (admin) saad vajadusel mööda.
-- Merge'imise seaded: ainult tavaline merge commit, harud jäävad pärast merge'i alles.
 - Harud `feat/sim`, `feat/voice`, `feat/brain`, `feat/stage`.
-- Igale inimesele oma issue tema ülesannetega.
+- Igale inimesele oma issue tema ülesannetega (#1–#5) ja seadete kontrollnimekiri (#6).
 
-## Osa B. Mis jääb sulle (umbes 25 minutit, mitte kood)
+## Osa B. Mis jääb sulle (umbes 30 minutit, mitte kood)
+
+### B0. Repo seaded (3 min, tee kohe; sama loend on issue #6)
+1. **Merge'imine:** Settings → General → Pull Requests → jäta sisse ainult **Allow merge commits**. Võta maha *Allow squash merging* ja *Allow rebase merging*. *Automatically delete head branches* jäta maha.
+2. **`main`-i lukk:** Settings → Rules → Rulesets → **New ruleset → New branch ruleset**:
+   - Name `main`, Enforcement status **Active**
+   - Bypass list → Add bypass → **Repository admin** (see oled sina)
+   - Target branches → Add target → **Include default branch**
+   - Märgi **Restrict deletions**, **Block force pushes**, **Require a pull request before merging** → Required approvals **1** → märgi **Require review from Code Owners**
+   - **Create**
+
+   Tulemus: keegi peale sinu ei saa midagi `main`-i panna ilma sinu heakskiiduta; sina saad adminina mööda.
 
 ### B1. Tiimikaaslaste kutsed
-Kui kutsed ei ole veel saadetud: **Settings → Collaborators → Add people** → Sanderi, Atsi, Aaroni (ja soovi korral Otto) GitHubi kasutajanimed. Nad peavad kutse vastu võtma (e-post või https://github.com/notifications).
+**Settings → Collaborators → Add people** → Sanderi, Atsi, Aaroni (ja soovi korral Otto) GitHubi kasutajanimed. Nad peavad kutse vastu võtma (e-post või https://github.com/notifications). Seejärel määra igaüks tema issue'le (issue lehel paremal **Assignees**).
 
 ### B2. OpenAI (5 min)
 platform.openai.com → **API keys** → loo võti. Kontrolli, et kontol on krediiti. Pane **kulupiir** (Billing → Limits), näiteks 30 €.
