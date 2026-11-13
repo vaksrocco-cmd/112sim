@@ -2,7 +2,7 @@
 // Päring: POST { text } -> heli. Pakkuja: ElevenLabs (voog, kiire), kui ELEVENLABS_API_KEY on olemas;
 // muidu (või vea korral) TartuNLP avalik API (tasuta, aga aeglasem). 501/502 = klient kasutab brauseri häält.
 // Dokumentatsioon: https://elevenlabs.io/docs/api-reference/text-to-speech/stream
-//   NB: vaikimisi mudel eleven_multilingual_v2 EI oska eesti keelt; eleven_v4_turbo oskab ja on kõige kiirem.
+//   NB: vaikimisi mudel eleven_multilingual_v2 EI oska eesti keelt; eleven_v3_conversational oskab ja oli mõõtes kõige kiirem (esimene bait ~0,16 s).
 import { z } from 'zod';
 
 export const maxDuration = 30;
@@ -35,7 +35,7 @@ export async function POST(req: Request) {
       {
         method: 'POST',
         headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY, 'content-type': 'application/json' },
-        body: JSON.stringify({ text, model_id: process.env.ELEVENLABS_TTS_MODEL || 'eleven_v4_turbo', language_code: 'et' }),
+        body: JSON.stringify({ text, model_id: process.env.ELEVENLABS_TTS_MODEL || 'eleven_v3_conversational', language_code: 'et' }),
       },
       8000,
     );
