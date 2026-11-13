@@ -1,0 +1,217 @@
+{
+  "id": "vanaema-insult",
+  "version": 1,
+  "title": "Vanaema köögis",
+  "locale": "et-EE",
+  "brief": {
+    "headline": "Oled vanaema Helgi juures külas.",
+    "known": [
+      "Vanaema Helgi on 78-aastane.",
+      "Jõite köögis teed, kui ta hakkas äkki segaselt rääkima.",
+      "Laual on ümbrik tema aadressiga."
+    ],
+    "envelope": [
+      "Helgi Tamm",
+      "Männikäbi tee 14",
+      "Haabneeme, 74001 Viimsi vald"
+    ]
+  },
+  "truth": {
+    "patient": {
+      "name": "Helgi",
+      "age": 78,
+      "sex": "female",
+      "relation": "vanaema"
+    },
+    "address": {
+      "street": "Männikäbi tee",
+      "house": "14",
+      "settlement": "Haabneeme",
+      "municipality": "Viimsi vald"
+    },
+    "condition": "insult",
+    "onsetNote": "sümptomid algasid umbes 5 minutit enne kõnet"
+  },
+  "symptoms": [
+    {
+      "id": "confusion",
+      "label": "segasus",
+      "hints": [
+        "segane",
+        "ei saa aru",
+        "ei tunne ära"
+      ]
+    },
+    {
+      "id": "speech_problem",
+      "label": "kõnehäire",
+      "hints": [
+        "räägib segaselt",
+        "ei leia sõnu",
+        "pudistab",
+        "jutt on imelik"
+      ]
+    },
+    {
+      "id": "face_droop",
+      "label": "näopoole vajumine",
+      "hints": [
+        "suunurk vajus",
+        "nägu viltu",
+        "üks pool näost"
+      ]
+    },
+    {
+      "id": "arm_weakness",
+      "label": "käe nõrkus",
+      "hints": [
+        "ei saa kätt tõsta",
+        "käsi ei liigu",
+        "tass kukkus"
+      ]
+    },
+    {
+      "id": "collapse",
+      "label": "kokkuvajumine",
+      "hints": [
+        "vajus kokku",
+        "kukkus",
+        "vajus külili"
+      ]
+    },
+    {
+      "id": "unresponsive",
+      "label": "ei reageeri",
+      "hints": [
+        "ei vasta",
+        "ei reageeri",
+        "silmad kinni",
+        "teadvuseta"
+      ]
+    }
+  ],
+  "states": [
+    {
+      "id": "INTRO",
+      "kind": "intro",
+      "clipUrl": "/clips/vanaema/intro.mp4",
+      "posterUrl": "/clips/vanaema/intro.jpg",
+      "caption": "Vanaema paneb tassi käest ja hakkab segaselt rääkima.",
+      "observable": [
+        "confusion",
+        "speech_problem"
+      ],
+      "vitals": {
+        "conscious": "yes",
+        "breathing": "yes"
+      },
+      "requiresReport": false
+    },
+    {
+      "id": "S1",
+      "kind": "loop",
+      "clipUrl": "/clips/vanaema/s1.mp4",
+      "posterUrl": "/clips/vanaema/s1.jpg",
+      "caption": "Vanaema istub laua taga, otsib sõnu ja vaatab segaduses ringi.",
+      "observable": [
+        "confusion",
+        "speech_problem"
+      ],
+      "vitals": {
+        "conscious": "yes",
+        "breathing": "yes"
+      },
+      "requiresReport": false
+    },
+    {
+      "id": "S2",
+      "kind": "loop",
+      "clipUrl": "/clips/vanaema/s2.mp4",
+      "posterUrl": "/clips/vanaema/s2.jpg",
+      "caption": "Vanaema parem suunurk on alla vajunud. Ta üritab tassi võtta, aga parem käsi ei tõuse.",
+      "observable": [
+        "face_droop",
+        "arm_weakness",
+        "speech_problem"
+      ],
+      "vitals": {
+        "conscious": "yes",
+        "breathing": "yes"
+      },
+      "requiresReport": true,
+      "reportWindowMs": 30000
+    },
+    {
+      "id": "S3",
+      "kind": "loop",
+      "clipUrl": "/clips/vanaema/s3.mp4",
+      "posterUrl": "/clips/vanaema/s3.jpg",
+      "caption": "Vanaema on toolil külili vajunud, silmad kinni. Ta ei vasta, aga rind liigub: ta hingab.",
+      "observable": [
+        "collapse",
+        "unresponsive"
+      ],
+      "vitals": {
+        "conscious": "no",
+        "breathing": "yes"
+      },
+      "requiresReport": true,
+      "reportWindowMs": 20000
+    },
+    {
+      "id": "END_GOOD",
+      "kind": "ending",
+      "clipUrl": "/clips/vanaema/end_good.mp4",
+      "posterUrl": "/clips/vanaema/end_good.jpg",
+      "caption": "Uksekell heliseb. Kiirabi on kohal.",
+      "observable": [],
+      "vitals": {
+        "conscious": "yes",
+        "breathing": "yes"
+      },
+      "requiresReport": false
+    }
+  ],
+  "transitions": [
+    {
+      "from": "S1",
+      "to": "S2",
+      "when": [
+        {
+          "type": "call_elapsed",
+          "ms": 45000
+        }
+      ],
+      "reason": "sümptomid süvenevad"
+    },
+    {
+      "from": "S2",
+      "to": "S3",
+      "when": [
+        {
+          "type": "change_unreported"
+        },
+        {
+          "type": "location_incomplete_after",
+          "ms": 120000
+        }
+      ],
+      "reason": "seisund halveneb, sest info ei jõudnud päästekorraldajani"
+    }
+  ],
+  "rules": {
+    "addressDeadlineMs": 120000,
+    "arrivalAfterDispatchMs": 30000,
+    "wrapUpGraceMs": 15000,
+    "maxCallMs": 180000,
+    "wrapUpCue": "[SÜSTEEM] Kiirabi jõudis just helistaja juurde. Ütle ühe lühikese lausega, et kiirabi on kohal ja helistaja võib kõne lõpetada. Seejärel kutsu end_call."
+  },
+  "dispatcherWhitelist": [
+    "Jääge tema juurde, ärge jätke teda üksi.",
+    "Ärge andke talle süüa, juua ega ravimeid.",
+    "Tehke välisuks lahti, et kiirabi saaks sisse.",
+    "Jätke meelde, mis kell sümptomid algasid.",
+    "Öelge mulle kohe, kui midagi muutub.",
+    "Vaadake, kas ta rind liigub. Kas ta hingab?"
+  ]
+}

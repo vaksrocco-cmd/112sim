@@ -12,13 +12,14 @@ jobs:
         id: app
         run: |
           if [ -f package.json ]; then echo "present=true" >> "$GITHUB_OUTPUT"; else echo "present=false" >> "$GITHUB_OUTPUT"; echo "No package.json yet, skipping."; fi
+          if [ -f package-lock.json ]; then echo "lock=true" >> "$GITHUB_OUTPUT"; else echo "lock=false" >> "$GITHUB_OUTPUT"; fi
       - uses: actions/setup-node@v4
         if: steps.app.outputs.present == 'true'
         with:
           node-version: 22
-          cache: npm
+          cache: ${{ steps.app.outputs.lock == 'true' && 'npm' || '' }}
       - if: steps.app.outputs.present == 'true'
-        run: npm ci
+        run: if [ -f package-lock.json ]; then npm ci; else npm install --no-audit --no-fund; fi
       - if: steps.app.outputs.present == 'true'
         run: npm run typecheck
       - if: steps.app.outputs.present == 'true'

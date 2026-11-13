@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+/*
+  KUJUNDUSE TOKENID. Ainus koht, kus värvid ja fondid on kirjas.
+  Ajutised väärtused: integraator asendab need Aaroni graphite-design-system tokenitega.
+  Komponendid kasutavad ainult neid klasse: bg-bg, bg-surface, bg-surface-2, border-border,
+  text-fg, text-muted, bg-accent, text-accent-fg, text-ok, text-warn, text-danger, rounded-card.
+*/
+@theme {
+  --color-bg: #0b0d10;
+  --color-surface: #14171c;
+  --color-surface-2: #1c2027;
+  --color-border: #2a2f38;
+  --color-fg: #e8eaed;
+  --color-muted: #9aa3ae;
+  --color-accent: #e5484d;
+  --color-accent-fg: #ffffff;
+  --color-ok: #30a46c;
+  --color-warn: #f5a524;
+  --color-danger: #e5484d;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --radius-card: 14px;
+}
+
+html,
+body {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+}
