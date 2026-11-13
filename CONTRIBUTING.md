@@ -77,10 +77,10 @@ npm run typecheck && npm run test && npm run lint
 git status
 
 # 4) Lisa AINULT oma failid, nimepidi (mitte "git add ." ega "git add -A")
-git add src/lib/voice/cascade.ts src/app/api/voice/turn/route.ts
+git add src/lib/voice/openaiRealtime.ts src/app/api/realtime/session/route.ts
 
 # 5) Salvesta ja saada GitHubi
-git commit -m "Add cascade voice provider"
+git commit -m "Add OpenAI Realtime voice provider"
 git push origin feat/SINU-HARU
 ```
 

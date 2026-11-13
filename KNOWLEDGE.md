@@ -1,8 +1,10 @@
 # 112Sim: projekti teadmusfail (KNOWLEDGE.md)
 
-**Versioon 2.3 · 13.11.2026 · omanik: Rocco (integraator) · repo: https://github.com/vaksrocco-cmd/112sim**
+**Versioon 2.4 · 13.11.2026 · omanik: Rocco (integraator) · repo: https://github.com/vaksrocco-cmd/112sim**
 
-> **2.3:** kõik AI käib **Claude API** kaudu (D-7, D-13). Hääl on kaskaad: brauseri kõnetuvastus (et-EE) → `/api/voice/turn` (Claude, voog, tööriistad) → `/api/voice/tts` → kõlar. Ühine klient `src/lib/llm/claude.ts`. Karkass on olemas (23.1).
+> **2.4:** kõik AI käib **OpenAI API** kaudu (D-7, D-13), sest tiimil on OpenAI krediit olemas. Hääle põhivalik on jälle **OpenAI Realtime (WebRTC)**, kaskaad jääb varuks. Ühine tekstimudeli klient on `src/lib/llm/openai.ts` (impordi `@/lib/llm`). Versiooni 2.3 Claude'i-põhine plaan on tühistatud.
+>
+> **2.3 (tühistatud):** kõik AI käib **Claude API** kaudu (D-7, D-13). Hääl on kaskaad: brauseri kõnetuvastus (et-EE) → `/api/voice/turn` (Claude, voog, tööriistad) → `/api/voice/tts` → kõlar. Ühine klient `src/lib/llm/claude.ts`. Karkass on olemas (23.1).
 >
 > **2.2:** viis inimest: Rocco, Sander, Ats ja Aaron ehitavad, Otto teeb pitchi ja sisu (15.1). Avalik repo ja merge commit'id ilma rebase'ita (15.2, D-11, D-12), arenduslehed ja CI karkassis (23.1). Ehitajate juhend on `CONTRIBUTING.md`, integraatori juhend `ROCCO.md`.
 
@@ -60,7 +62,7 @@
 1. **Punktid arvutab kood, mitte LLM.** LLM leiab transkriptist tõendid ja kirjutab soovitused.
 2. **Stsenaariumi faktid on fikseeritud.** AI võib muuta sõnastust ja küsimuste järjekorda, aga ei mõtle fakte ega meditsiinilisi juhiseid välja.
 
-**Pakk:** Next.js (App Router) + TypeScript + Tailwind, Vercel, Supabase, Claude API kõigile kolmele AI rollile (päästekorraldaja: kiire mudel voona; kohtunik: kiire mudel struktureeritud väljundiga; analüütik: tark mudel). Hääl on kaskaad: brauseri kõnetuvastus → Claude → eestikeelne kõnesüntees.
+**Pakk:** Next.js (App Router) + TypeScript + Tailwind, Vercel, Supabase, OpenAI API kõigile kolmele AI rollile: päästekorraldaja on OpenAI Realtime (WebRTC, kõne otse kõneks), kohtunik on kiire tekstimudel struktureeritud väljundiga, analüütik on tark tekstimudel.
 
 **Tähtajad, mida ei saa nihutada:** laupäeval **11:00** töötab kogu voog ja varuvideo on salvestatud; **15:45** koodi külmutamine; **16:30** finaal.
 
@@ -288,8 +290,8 @@ Eesmärk: näidata demos, et süsteem ei ole ühe vestluse jaoks ette programmee
  └─────────────────────────────────────────────────────────────────────┘
         │ ajutine võti                         │ service role
         ▼                                      ▼
-  /api/voice/turn, /api/voice/tts,      Supabase: call_sessions
-  /api/extract, /api/analyze ─► Claude API
+  /api/realtime/session, /api/extract,  Supabase: call_sessions
+  /api/analyze ─► OpenAI API
 ```
 
 ### 7.2 Otsuste register
@@ -299,14 +301,14 @@ Eesmärk: näidata demos, et süsteem ei ole ühe vestluse jaoks ette programmee
 | D-1 | Päästekorraldaja **ei tea tõde** | Realistlik; ei saa kogemata vastust ette öelda („kas aadress on Männikäbi 14?“) | kinnitatud |
 | D-2 | Režissöör on **puhas deterministlik funktsioon**, üleminekud on stsenaariumi andmetes | Ennustatav, testitav, kiire; uus stsenaarium ilma koodita | kinnitatud |
 | D-3 | **Punktid arvutab kood**, LLM annab tõendid ja tekstid | Korratav ja põhjendatav hindamine | kinnitatud |
-| D-4 | Tõde ja võtmed **ainult serveris** | Turvalisus; brauser ei saa ühtegi võtit, kõik Claude'i päringud käivad meie API marsruutide kaudu | kinnitatud |
+| D-4 | Tõde ja võtmed **ainult serveris** | Turvalisus; brauser saab ainult ajutise Realtime'i võtme; kõik muud päringud käivad meie API marsruutide kaudu | kinnitatud |
 | D-5 | Stsenaariumid on **repo JSON-failides**, mitte andmebaasis | Üks migratsioon, ei mingit SQL-i kopeerimist | kinnitatud |
 | D-6 | Päris telefonivõrku ei ühendata | Lihtsam, odavam, välistab ühenduse päris 112-ga | kinnitatud |
-| D-7 | Hääl: **kaskaad** (brauseri kõnetuvastus et-EE → Claude voog → eestikeelne TTS), varuks tekstirežiim ja `mockVoice` | Claude'il ei ole reaalajas häälerežiimi; tiimil on Claude Maxi API krediit; valik on peidetud `VoiceProvider` taha | **ootab hääletesti** (TTS pakkuja) |
+| D-7 | Hääl: **OpenAI Realtime (WebRTC)** põhivalikuna, varuks kaskaad (brauseri kõnetuvastus → tekstimudel → TTS), tekstirežiim ja `mockVoice` | Üks ühendus, madal viivitus, tööriistakutsed; valik on peidetud `VoiceProvider` taha | **ootab hääletesti** |
 | D-8 | Moodulid ehitavad funktsionaalsuse `components/ui` primitiividega; visuaalse lihvi teeb integraator | Tiimi kokkulepe; väldib stiilikonflikte | kinnitatud |
 | D-9 | Klipid: filmitud või AI-genereeritud | vt 5.3 | **lahtine** |
 | D-10 | Stsenaarium 01 on vanaema insult, 02 jalgrattur | 01-s on seisundimuutus, mis on toote tuum | kinnitatud |
-| D-13 | Kõik LLM-kutsed käivad **Claude API** kaudu ühe kliendiga `src/lib/llm/claude.ts` (fetch, ilma SDK-ta); mudelid `CLAUDE_FAST_MODEL` ja `CLAUDE_SMART_MODEL` | Üks võti, üks arve (Claude Maxi kuukrediit), üks koht vigade käsitlemiseks | kinnitatud |
+| D-13 | Kõik LLM-kutsed käivad **OpenAI API** kaudu. Tekstimudelitel üks klient `src/lib/llm/openai.ts` (fetch, ilma SDK-ta; impordi `@/lib/llm`): `llmText`, `llmJson`, `llmStream`. Mudelid `OPENAI_FAST_MODEL` ja `OPENAI_SMART_MODEL` | Üks võti, üks arve, üks koht vigade käsitlemiseks; pakkuja vahetus puudutab ainult seda faili | kinnitatud |
 | D-11 | **Repo on avalik** | Tasuta GitHubis saab haru lukustada ainult avalikus repos; tasuta Vercel ei avalda privaatsest repost teiste autorite commit'e | kinnitatud |
 | D-12 | **Merge commit'id, ei rebase'i ega squash'i**; igaüks jääb oma harusse | Kõige vähem kohti, kus algaja või agent saab ajaloo sassi ajada; force-push'i pole kunagi vaja | kinnitatud |
 
@@ -487,17 +489,23 @@ export interface VoiceProvider {
 
 **Implementatsioonid ja varujärjekord:**
 
-1. **`cascade.ts` (põhivalik).** Kolm lüli, kõik `VoiceProvider`-i taga:
-   - **Kõnetuvastus brauseris:** Web Speech API (`webkitSpeechRecognition`, `lang = 'et-EE'`, `interimResults = true`, `continuous = true`). Töötab Chrome'is; heli töötleb brauseri tootja (Google). Vahetulemused → `onPartial`, lõplik tulemus → `onSegment` (`speaker: 'caller'`). Kui eesti keel ei tööta piisavalt hästi, on uuendus Soniox (serveripoolne võti, `SONIOX_API_KEY`).
-   - **Päästekorraldaja aju:** `POST /api/voice/turn` `{ scenarioId, messages }` → NDJSON voog (`text` / `tool` / `done` / `error`). Server kasutab Claude'i kiiret mudelit, prompti `dispatcher.et.md` ja tööriistu `dispatch_ambulance`, `end_call`. Päästekorraldaja **ei tea tõde**. Helistaja laused on `user`, päästekorraldaja laused `assistant`, märguanne on `user` sõnum, mis algab `[SÜSTEEM]`.
-   - **Kõnesüntees:** `POST /api/voice/tts` `{ text }` → heli. Pakkuja valib Sander hääletestis (TartuNLP, ElevenLabs või brauseri `speechSynthesis` varuks). **API kuju võta pakkuja dokumentatsioonist.** Lausete kaupa: esimene lause hakkab mängima enne, kui terve vastus on valmis.
-   - **Vahelerääkimine:** kui helistaja hakkab rääkima, peata TTS ja katkesta käimasolev `/api/voice/turn` päring (`AbortController`).
-   - `sendCue`: saada `[SÜSTEEM] …` sõnum ja küsi uus vastus. `sendCallerText`: tekstirežiim (sama voog ilma mikrofonita).
-   - `startMs` on hetk, mil kõne algus tuvastati; `endMs` hetk, mil lause lõppes. **Sorteeri alati `startMs` järgi.**
-2. **`elevenlabs` (varu).** ElevenLabs Agents'i SDK; sama liides. Ainult siis, kui kaskaad ei tööta.
-3. **`mockVoice.ts` (kohustuslik, valmis karkassis).** Mängib fixture'i (`fixtures/transcripts/*.json`) õigete ajastustega ette, ilma mikrofoni ja API-ta. Nii saab iga moodul areneda häälest sõltumata ja laval on hädavaru.
+1. **`openaiRealtime.ts` (põhivalik).** Voog OpenAI ametliku WebRTC juhendi järgi:
+   - Server (`/api/realtime/session`) teeb `POST https://api.openai.com/v1/realtime/client_secrets` päris võtmega ja sessiooni seadistusega (mudel, hääl, juhised, tööriistad, sisendi transkriptsioon, VAD) ning tagastab ajutise võtme (`value`).
+   - Brauser loob `RTCPeerConnection`'i, lisab mikrofoni raja, avab andmekanali, teeb SDP pakkumise ja saadab selle `POST https://api.openai.com/v1/realtime/calls` ajutise võtmega (`Content-Type: application/sdp`). Vastus on SDP answer.
+   - Andmekanali sündmustest teeb adapter meie `TranscriptSegment`-id ja tööriistakutsed. **Sündmuste ja seadistusväljade täpsed nimed võta dokumentatsioonist, ära kirjuta mälu järgi**: https://developers.openai.com/api/docs/guides/realtime-webrtc
+   - Lülita sisse **helistaja kõne transkriptsioon keelega `et`** ja serveripoolne kõnetuvastus (VAD).
+   - `sendCue`: lisa vestlusesse süsteemisõnum ja küsi uus vastus.
+   - `startMs` võetakse hetkest, mil kõne algus tuvastati; `endMs` hetkest, mil lause lõppes. Helistaja transkript võib saabuda hiljem kui päästekorraldaja vastus: **sorteeri alati `startMs` järgi**.
+   - Mudel ja hääl tulevad muutujatest `REALTIME_MODEL` (vaikimisi `gpt-realtime-2.1`, odavam `gpt-realtime-2.1-mini`) ja `REALTIME_VOICE` (vaikimisi `marin`). Karkassis on `/api/realtime/session` juba olemas minimaalse seadistusega; juhised, tööriistad ja transkriptsioon lisab Sander.
+2. **`cascade.ts` (varu 1).** Kui Realtime'i eesti keel ei sobi. Kolm lüli:
+   - **Kõnetuvastus brauseris:** Web Speech API (`webkitSpeechRecognition`, `lang = 'et-EE'`, `interimResults = true`). Töötab Chrome'is. Uuendus: Soniox (`SONIOX_API_KEY`).
+   - **Päästekorraldaja aju:** `POST /api/voice/turn` `{ scenarioId, messages }` → NDJSON voog (`text` / `tool` / `done` / `error`). **Olemas karkassis:** kiire tekstimudel (`llmStream`), prompt `dispatcher.et.md`, tööriistad `dispatch_ambulance` ja `end_call`. Helistaja laused on `user`, päästekorraldaja laused `assistant`, märguanne on `user` sõnum, mis algab `[SÜSTEEM]`.
+   - **Kõnesüntees:** `POST /api/voice/tts` `{ text }` → heli. Pakkuja valib Sander (TartuNLP, ElevenLabs või brauseri `speechSynthesis`). **API kuju võta pakkuja dokumentatsioonist.**
+   - Sama marsruut `/api/voice/turn` teenindab ka **tekstirežiimi** (`sendCallerText`): helistaja trükib, päästekorraldaja vastab tekstina.
+3. **`elevenlabs` (varu 2).** ElevenLabs Agents'i SDK; sama liides. Ainult siis, kui eelmised ei tööta.
+4. **`mockVoice.ts` (kohustuslik, valmis karkassis).** Mängib fixture'i (`fixtures/transcripts/*.json`) õigete ajastustega ette, ilma mikrofoni ja API-ta. Nii saab iga moodul areneda häälest sõltumata ja laval on hädavaru.
 
-Valik tehakse `NEXT_PUBLIC_VOICE_PROVIDER` järgi (`cascade` | `elevenlabs` | `mock`) ja URL-i parameetriga `?voice=mock`. Arendusleht: `/dev/voice`.
+Valik tehakse `NEXT_PUBLIC_VOICE_PROVIDER` järgi (`openai` | `cascade` | `elevenlabs` | `mock`) ja URL-i parameetriga `?voice=mock`. Arendusleht: `/dev/voice`.
 
 **Tööriistad päästekorraldajale:**
 - `dispatch_ambulance({ priority, address, summary })`: kutsutakse kohe, kui on teada, mis juhtus ja kus. `address` on aadress nii, nagu päästekorraldaja sellest aru sai.
@@ -519,7 +527,7 @@ Valik tehakse `NEXT_PUBLIC_VOICE_PROVIDER` järgi (`cascade` | `elevenlabs` | `m
   - Aadressi võrdlus on leebe: „Männikäbi 14“, „Männi käbi tee neliteist“ = tänav + maja. „Haabneeme“ või „Viimsi“ = asula/vald.
   - `changeReports` lisatakse, kui helistaja kirjeldab **pärast** seisundi algust sümptomit, mis on selle seisundi `observable` hulgas ja mida eelmistes seisundites ei olnud.
   - `volunteered = true`, kui info öeldi enne, kui päästekorraldaja seda küsis. **Küsimusele vastamine ei ole viga.**
-- **Kiirus:** eesmärk alla 1,5 s. `CLAUDE_FAST_MODEL` (`claudeJson` failist `lib/llm/claude.ts`). Kui aeglane, saada ainult viimased 12 segmenti + `prevFacts`.
+- **Kiirus:** eesmärk alla 1,5 s. `OPENAI_FAST_MODEL` (`llmJson` failist `@/lib/llm`). **Range skeem:** igal objektil `additionalProperties: false` ja kõik väljad `required` hulgas; valikulised väljad (`atMs`, `quote` jne) kirjelda nullitavana ja eemalda `null`-id koodis. Kui aeglane, saada ainult viimased 12 segmenti + `prevFacts`.
 
 **Valmis, kui:** kolm fixture'it annavad oodatud `CallFacts` väärtused (vt 11) ja `mergeFacts` testid läbivad.
 
@@ -641,7 +649,7 @@ Paneeli saab lülitada: demos sees, harjutamisel vaikimisi väljas (muidu on see
 
 Reaktsiooniaeg = `changeReport.atMs − stateVisit.enteredAtMs`. Ajad loetakse `atMs` väärtustest, mitte LLM-i hinnangust.
 
-**`analyze.ts` (LLM, `CLAUDE_SMART_MODEL`)** saab transkripti, sündmused, faktid ja **juba arvutatud punktid** ning kirjutab ainult: iga rea `evidence` (tsitaat), `missed`, `tips`, `whatWouldHaveHappened`. Kood kontrollib, et iga tsitaat on transkriptis olemas, ja kirjutab punktid üle oma arvutatud väärtustega.
+**`analyze.ts` (LLM, `OPENAI_SMART_MODEL`, `llmJson`)** saab transkripti, sündmused, faktid ja **juba arvutatud punktid** ning kirjutab ainult: iga rea `evidence` (tsitaat), `missed`, `tips`, `whatWouldHaveHappened`. Kood kontrollib, et iga tsitaat on transkriptis olemas, ja kirjutab punktid üle oma arvutatud väärtustega.
 
 Kui LLM ebaõnnestub, tagastatakse raport ilma tekstideta (punktid, ajad ja `why` on koodist). **Raport ei tohi kunagi LLM-i vea tõttu ära jääda.**
 
@@ -852,6 +860,7 @@ Helisalvestisi ei salvestata. Kui Supabase ei vasta, salvestatakse sessioon brau
 | Marsruut | Meetod | Sisend | Väljund | Omanik |
 |---|---|---|---|---|
 | `/api/scenarios/[id]` | GET | — | `PublicScenario` | integraator |
+| `/api/realtime/session` | POST | `{ scenarioId }` | `{ ephemeralKey, model }` | hääl |
 | `/api/voice/turn` | POST | `{ scenarioId, messages }` | NDJSON voog (`text`, `tool`, `done`, `error`) | hääl |
 | `/api/voice/tts` | POST | `{ text }` | heli | hääl |
 | `/api/extract` | POST | `{ scenarioId, transcript, prevFacts, stateHistory }` | `{ facts: CallFacts }` | aju |
@@ -888,8 +897,8 @@ Reeglid: sisend valideeritakse (zod); viga on `{ error: string }` õige staatuse
       ├─ types.ts                          lepingud (ainult integraator)
       ├─ facts.ts                          emptyFacts(), mergeFacts()
       ├─ scenarios/                        index.ts (getScenario, getPublicScenario), *.json
-      ├─ voice/                            VoiceProvider.ts, index.ts, cascade.ts, mockVoice.ts
-      ├─ llm/                              claude.ts (ühine Claude API klient, ainult integraator)
+      ├─ voice/                            VoiceProvider.ts, index.ts, openaiRealtime.ts, cascade.ts, mockVoice.ts
+      ├─ llm/                              index.ts, openai.ts (ühine OpenAI klient, ainult integraator)
       ├─ director/                         director.ts, outcome.ts, endings.ts, *.test.ts
       ├─ agents/                           extract.ts, analyze.ts, scoring.ts, prompts/*.et.md + prompts/index.ts
       ├─ sim/                              useSimulation.ts
@@ -907,7 +916,7 @@ Tiimis on viis inimest: neli ehitavad toodet, üks (Otto) teeb pitchi ja sisu. *
 | Roll | Kes | Haru | Failid | Valmis, kui |
 |---|---|---|---|---|
 | **1. Integraator ja simulatsioon** | Rocco | `feat/sim` | karkass, `lib/types.ts`, `lib/facts.ts`, `lib/scenarios/**`, `lib/llm/**`, `components/ui/**`, `lib/sim/useSimulation.ts`, simulatsioonileht, `components/sim/` (v.a `VideoStage`, `ScenarioIntro`), `/api/scenarios`, `/api/sessions`, `lib/db/**`, `supabase/**`, Vercel, kõik merge'id | `good_call` mängib `mockVoice`-iga algusest raportini Verceli URL-il |
-| **2. Hääl** | Sander | `feat/voice` | `lib/voice/**` (v.a `VoiceProvider.ts` ja `mockVoice.ts` karkassis), `/api/voice/**`, `prompts/dispatcher.et.md` | vt 9.1. Lisaks: teeb hääletesti ja otsustab TTS pakkuja (D-7) |
+| **2. Hääl** | Sander | `feat/voice` | `lib/voice/**` (v.a `VoiceProvider.ts` ja `mockVoice.ts` karkassis), `/api/realtime/session`, `/api/voice/**`, `prompts/dispatcher.et.md` | vt 9.1. Lisaks: teeb hääletesti ja otsustab D-7 |
 | **3. Aju** (kohtunik, režissöör, hindamine) | Ats | `feat/brain` | `lib/agents/**` (v.a `dispatcher.et.md`), `lib/director/**`, `/api/extract`, `/api/analyze`, `fixtures/**` | vt 9.2, 9.3, 9.6: viis fixture'it annavad oodatud tulemuse |
 | **4. Lava ja raport** | Aaron | `feat/stage` | klipid (`public/clips/**`), `components/sim/VideoStage.tsx`, `ScenarioIntro.tsx`, `components/report/**`, raportileht | vt 9.4 ja 9.7: viis klippi laetud, sulandus töötab, fixture'i sessioonist tekib raport |
 | **5. Pitch, sisu, testimine** | Otto | — (koodi ei kirjuta) | pitch ja slaidid, numbrid ja allikad, stsenaariumi tekstid (saadab Roccole), klippide filmimine koos Aaroniga, proovikasutajad, varuvideo | pitch 3 korda läbi harjutatud koos päris demoga; 5 inimest väljastpoolt tiimi on kõne ära teinud |
@@ -958,16 +967,18 @@ Ehitajate samm-sammuline juhend on `CONTRIBUTING.md`, integraatori oma `ROCCO.md
 Verceli projektis (Production + Preview) ja kohalikus `.env.local`-is. **Mitte kunagi repos.**
 
 ```
-ANTHROPIC_API_KEY=              # platform.claude.com, ainult serveris
-ANTHROPIC_VERSION=2023-06-01
-CLAUDE_FAST_MODEL=claude-haiku-5-5    # päästekorraldaja ja kohtunik
-CLAUDE_SMART_MODEL=claude-sonnet-5-5  # analüütik
-NEXT_PUBLIC_VOICE_PROVIDER=mock       # cascade | elevenlabs | mock
-TTS_PROVIDER=browser                  # tartunlp | elevenlabs | browser (Sander otsustab)
+OPENAI_API_KEY=                       # platform.openai.com, ainult serveris
+OPENAI_FAST_MODEL=gpt-6.1-terra       # kohtunik ja kaskaadi päästekorraldaja (odavam: gpt-6-luna)
+OPENAI_SMART_MODEL=gpt-6.1-sol        # analüütik
+OPENAI_FAST_REASONING_EFFORT=         # valikuline, nt low
+REALTIME_MODEL=gpt-realtime-2.1       # häälkõne (odavam: gpt-realtime-2.1-mini)
+REALTIME_VOICE=marin                  # vali hääletestis
+NEXT_PUBLIC_VOICE_PROVIDER=mock       # openai | cascade | elevenlabs | mock
+TTS_PROVIDER=browser                  # ainult kaskaadile: tartunlp | elevenlabs | browser
 TARTUNLP_SPEAKER=
 ELEVENLABS_API_KEY=
 ELEVENLABS_VOICE_ID=
-SONIOX_API_KEY=                       # valikuline parem kõnetuvastus
+SONIOX_API_KEY=
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=            # ainult serveris
 ```
@@ -1007,7 +1018,7 @@ Ainus `NEXT_PUBLIC_` muutuja on häälepakkuja valik. Ükski saladus ei kanna se
 
 | Risk | Varuplaan |
 |---|---|
-| Brauseri eestikeelne kõnetuvastus või TTS kõlab halvasti või saab aadressist valesti aru | Päästekorraldaja kordab aadressi üle; kohtunik on leebe; varupakkuja (Soniox kõnetuvastuseks, teine TTS, tekstirežiim) sama liidese taga |
+| Eestikeelne Realtime kõlab halvasti või saab aadressist valesti aru | Päästekorraldaja kordab aadressi üle; kohtunik on leebe; varupakkuja (kaskaad, ElevenLabs, tekstirežiim) sama liidese taga |
 | Saali müra | Mikrofoniga kõrvaklapid; „vajuta ja räägi“ režiim |
 | Saali Wi-Fi | Telefoni kuumkoht; varuvideo |
 | Kohtunik on aeglane | Kiirem mudel; lühem kontekst; paneel uueneb hilinemisega, aga režissööri taimerid ei oota |
@@ -1052,7 +1063,7 @@ Varuks: tiimiliige teeb kõne ise; siis `mock`-režiim; siis video.
 3. **Lahendus** ühe lausega (vt 3.3).
 4. **Demo.**
 5. **Kuidas see töötab** (üks slaid): kolm AI rolli ja deterministlik režissöör. Miks nii: AI räägib ja saab aru, aga stsenaarium ja punktid on kontrolli all.
-6. **Jätkusuutlikkus:** ühe kõne kulu (mõõda oma proovikõnedest: Claude API tokenid + TTS; kaskaad on reaalajas häälemudelist mitu korda odavam) ja kes maksab (koolid, esmaabikoolitajad, autokoolid; litsents klassi või kõnepaki kaupa).
+6. **Jätkusuutlikkus:** ühe kõne kulu (mõõda oma proovikõnedest OpenAI kasutuslehelt: Realtime'i heli + kohtuniku ja analüütiku tokenid) ja kes maksab (koolid, esmaabikoolitajad, autokoolid; litsents klassi või kõnepaki kaupa).
 7. **Edasi:** rohkem stsenaariume, õpetaja vaade, vene keel, sisu valideerimine koos Häirekeskuse ja esmaabikoolitajatega.
 
 ### 20.3 Vastused küsimustele
@@ -1163,9 +1174,10 @@ Enne commit'i jooksuta typecheck, test ja lint.
 - CallerSimi partnerid: https://www.helse-stavanger.no/en/research-education/resources-and-networks/rakos/the-regional-centre-for-emergency-medical-research-and-development-rakos/start-up-callersim/
 - Sklls AMK Simulator: https://www.helse-stavanger.no/en/research-education/resources-and-networks/rakos/prosjekter/amk-simulator/
 - Sim911: https://arxiv.org/pdf/2412.16844
-- Claude API, Messages ja voogedastus: https://platform.claude.com/docs/en/build-with-claude/streaming
-- Claude API, struktureeritud väljund: https://platform.claude.com/docs/en/build-with-claude/structured-outputs
-- Claude API, tööriistad: https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview
+- OpenAI Realtime API, WebRTC juhend: https://developers.openai.com/api/docs/guides/realtime-webrtc
+- OpenAI Chat Completions (tekstimudelid, voog, tööriistad): https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create
+- OpenAI struktureeritud väljund: https://developers.openai.com/api/docs/guides/structured-outputs
+- OpenAI hinnad ja mudelid: https://developers.openai.com/api/docs/pricing
 - Web Speech API (SpeechRecognition): https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition
 - ElevenLabs Agents'i keeled: https://help.elevenlabs.io/hc/en-us/articles/29298127196945
 - Soniox, eesti keele võrdlus (tootja enda andmed): https://soniox.com/compare-stt/soniox-vs-openai/estonian

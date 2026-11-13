@@ -2,12 +2,13 @@
 import type { TranscriptFixture } from '../types';
 import { createCascadeVoice } from './cascade';
 import { createMockVoice } from './mockVoice';
+import { createOpenAiRealtimeVoice } from './openaiRealtime';
 import type { VoiceProvider, VoiceProviderKind } from './VoiceProvider';
 
 export function resolveVoiceKind(search?: string | null): VoiceProviderKind {
   const fromUrl = search ? new URLSearchParams(search).get('voice') : null;
   const v = (fromUrl ?? process.env.NEXT_PUBLIC_VOICE_PROVIDER ?? 'mock') as VoiceProviderKind;
-  return ['mock', 'cascade', 'elevenlabs'].includes(v) ? v : 'mock';
+  return ['mock', 'openai', 'cascade', 'elevenlabs'].includes(v) ? v : 'mock';
 }
 
 export function createVoiceProvider(
@@ -15,6 +16,8 @@ export function createVoiceProvider(
   opts: { fixture: TranscriptFixture; speed?: number },
 ): VoiceProvider {
   switch (kind) {
+    case 'openai':
+      return createOpenAiRealtimeVoice();
     case 'cascade':
       return createCascadeVoice();
     case 'elevenlabs':

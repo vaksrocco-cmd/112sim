@@ -31,4 +31,4 @@ export interface VoiceProvider {
   stop(): Promise<void>;
 }
 
-export type VoiceProviderKind = 'mock' | 'cascade' | 'elevenlabs';
+export type VoiceProviderKind = 'mock' | 'openai' | 'cascade' | 'elevenlabs';

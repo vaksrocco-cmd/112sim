@@ -11,7 +11,7 @@ Kontrolli `git branch --show-current`. Kui haru ei ole üks allolevatest, küsi 
 | Haru | Kes | Moodul | Failid |
 |---|---|---|---|
 | `feat/sim` | Rocco | integraator | karkass, ühised failid, `lib/sim/**`, simulatsioonileht, `components/sim/**` (v.a `VideoStage`, `ScenarioIntro`), `/api/scenarios`, `/api/sessions`, `lib/db/**` |
-| `feat/voice` | Sander | hääl | `lib/voice/**` (v.a `VoiceProvider.ts`, `index.ts`), `/api/voice/**`, `prompts/dispatcher.et.md` |
+| `feat/voice` | Sander | hääl | `lib/voice/**` (v.a `VoiceProvider.ts`, `index.ts`), `/api/realtime/session`, `/api/voice/**`, `prompts/dispatcher.et.md` |
 | `feat/brain` | Ats | aju | `lib/agents/**` (v.a `dispatcher.et.md`), `lib/director/**`, `/api/extract`, `/api/analyze`, `fixtures/**` |
 | `feat/stage` | Aaron | lava ja raport | `public/clips/**`, `components/sim/VideoStage.tsx`, `ScenarioIntro.tsx`, `components/report/**`, raportileht |
 
@@ -34,7 +34,7 @@ Kontrolli `git branch --show-current`. Kui haru ei ole üks allolevatest, küsi 
 7. **Iga moodul töötab `mockVoice`-i ja fixture'itega** ilma teiste mooduliteta.
 8. **UI:** ainult `src/components/ui/` primitiivid ja tokenid. Kõvakodeeritud värve ja fonte ei kasutata. Välimuse lihvib integraator.
 9. **Keel:** kasutajale nähtav tekst eesti keeles; kood, muutujad ja commitid inglise keeles.
-10. **API-de nimed võta dokumentatsioonist, mitte mälust** (Claude API: https://platform.claude.com/docs; Web Speech API: MDN).
+10. **API-de nimed võta dokumentatsioonist, mitte mälust** (OpenAI Realtime: https://developers.openai.com/api/docs/guides/realtime-webrtc; tekstimudelid: kasuta `@/lib/llm`).
 11. **Uusi sõltuvusi ega migratsioone ei lisa.** Kui vajad paketti, peatu ja ütle inimesele.
 12. Kui see fail või `KNOWLEDGE.md` tundub vale või puudulik, **ära improviseeri**: kirjelda probleemi inimesele.
 

@@ -1,5 +1,5 @@
-// HÄÄL (Sander, feat/voice). KNOWLEDGE.md 9.1.
-// Kaskaad: brauseri kõnetuvastus (et-EE) -> /api/voice/turn (Claude, voog) -> /api/voice/tts -> kõlar.
+// HÄÄL (Sander, feat/voice). KNOWLEDGE.md 9.1. VARUPAKKUJA, kui OpenAI Realtime ei sobi.
+// Kaskaad: brauseri kõnetuvastus (et-EE) -> /api/voice/turn (tekstimudel, voog) -> /api/voice/tts -> kõlar.
 import type { VoiceProvider } from './VoiceProvider';
 
 export function createCascadeVoice(): VoiceProvider {

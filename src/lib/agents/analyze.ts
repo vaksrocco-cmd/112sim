@@ -3,7 +3,7 @@ import type { AnalysisReport, CallSession, Scenario } from '../types';
 import { scoreSession } from './scoring';
 
 export async function analyzeSession(session: CallSession, scenario: Scenario): Promise<AnalysisReport> {
-  // TODO(Ats): Claude kirjutab tõendid, missed, tips ja whatWouldHaveHappened (models.smart()).
+  // TODO(Ats): LLM (llmJson failist '@/lib/llm') kirjutab tõendid, missed, tips ja whatWouldHaveHappened (models.smart()).
   // Kood kirjutab punktid alati üle. LLM-i vea korral tagasta raport ilma tekstideta.
   const rubric = scoreSession(session, scenario);
   return {
