@@ -6,6 +6,8 @@
 import { z } from 'zod';
 
 export const maxDuration = 30;
+// Kõnesüntees asub Eestis: jooksuta seda marsruuti Põhjamaades (Stockholm, varuks Frankfurt), et heli jõuaks kiiremini.
+export const preferredRegion = ['arn1', 'fra1'];
 
 const Body = z.object({ text: z.string().min(1).max(600), emotion: z.enum(['calm', 'firm', 'urgent']).optional() });
 
