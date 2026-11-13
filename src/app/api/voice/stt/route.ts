@@ -13,12 +13,23 @@ const MAX_BYTES = 4 * 1024 * 1024;
 const HALLUCINATIONS = [/^tänan vaatamast/i, /^aitäh vaatamast/i, /subtiitrid/i, /^tellige kanal/i, /^\W*$/, /^\(.*\)$/];
 const HINT = 'Hädaabikõne Eestis. Helistaja räägib eesti keeles, mis juhtus, mis aadressil ta on ja kuidas abivajajal läheb.';
 
+// Eesti kohanimed, mida kõnetuvastus kipub valesti kirjutama. See on üldine loend (linnad, Harjumaa asulad),
+// MITTE stsenaariumi tõde: väljamõeldud tänavanime siin ei ole, et tuvastus ei "kuuleks" aadressi, mida ei öeldud.
+const PLACES = [
+  'Tallinn', 'Tartu', 'Narva', 'Pärnu', 'Kohtla-Järve', 'Viljandi', 'Rakvere', 'Maardu', 'Kuressaare', 'Sillamäe', 'Valga', 'Võru', 'Jõhvi',
+  'Haapsalu', 'Keila', 'Paide', 'Saue', 'Elva', 'Tapa', 'Põlva', 'Türi', 'Rapla', 'Saku', 'Jõgeva', 'Kiili', 'Jüri', 'Tabasalu', 'Laagri',
+  'Viimsi', 'Viimsi vald', 'Haabneeme', 'Pringi', 'Püünsi', 'Rohuneeme', 'Leppneeme', 'Tammneeme', 'Randvere', 'Miiduranna', 'Pärnamäe',
+  'Lubja', 'Äigrumäe', 'Metsakasti', 'Muuga', 'Kelvingi', 'Laiaküla', 'Pirita', 'Merivälja', 'Mähe', 'Lasnamäe', 'Mustamäe', 'Õismäe',
+  'Kristiine', 'Nõmme', 'Kalamaja', 'Kadriorg', 'Harjumaa', 'Rae vald', 'Jõelähtme', 'Loksa', 'Kehra', 'Paldiski',
+];
+
 async function elevenLabsTranscribe(audio: Blob, filename: string): Promise<string> {
   const form = new FormData();
   form.append('file', audio, filename);
   form.append('model_id', process.env.ELEVENLABS_STT_MODEL || 'scribe_v3');
   form.append('language_code', 'et');
   form.append('tag_audio_events', 'false');
+  for (const p of PLACES) form.append('keyterms', p);
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 10000);
   try {

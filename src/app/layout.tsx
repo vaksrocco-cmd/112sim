@@ -17,7 +17,7 @@ export const viewport: Viewport = { width: 'device-width', initialScale: 1, them
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="et" className={`${sans.variable} ${mono.variable}`}>
-      <body className="dots min-h-dvh bg-bg text-fg antialiased">
+      <body className="min-h-dvh bg-bg text-fg antialiased">
         <SimBanner />
         <main className="mx-auto flex min-h-[calc(100dvh-2.25rem)] w-full max-w-[430px] flex-col px-4 pb-6 pt-4">{children}</main>
       </body>

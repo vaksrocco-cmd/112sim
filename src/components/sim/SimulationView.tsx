@@ -1,15 +1,13 @@
 'use client';
-// Integraatori fail. Simulatsioon on üles ehitatud nagu telefonikõne: üks kitsas veerg, töötab ka 320 px laiusel.
+// Integraatori fail. Simulatsioon on üles ehitatud nagu telefonikõne: suur pilt, vähe teksti, üks kitsas veerg (töötab 320 px laiusel).
 import { useState } from 'react';
 import { useSimulation } from '@/lib/sim/useSimulation';
 import type { PublicScenario } from '@/lib/types';
-import { Text } from '@/components/ui';
 import { AiBrainPanel } from './AiBrainPanel';
 import { DialButton, HangUpButton, RoundButton } from './CallButton';
 import { CallHud, type CallActivity } from './CallHud';
 import { KnownCard } from './KnownCard';
 import { LiveTranscript } from './LiveTranscript';
-import { ScenarioIntro } from './ScenarioIntro';
 import { TextFallback } from './TextFallback';
 import { VideoStage } from './VideoStage';
 
@@ -18,27 +16,23 @@ export function SimulationView({ scenario }: { scenario: PublicScenario }) {
   const [showBrain, setShowBrain] = useState(false);
   const [showKeyboard, setShowKeyboard] = useState(false);
 
-  if (sim.phase === 'idle' || sim.phase === 'intro') {
-    return <ScenarioIntro scenario={scenario} onDone={sim.markReady} />;
-  }
-
   const live = sim.phase === 'in_call' || sim.phase === 'wrapping_up';
   const over = sim.phase === 'ended' || sim.phase === 'analyzing';
+  const error = sim.error ? <p className="flex-none text-center text-sm leading-5 text-danger">{sim.error}</p> : null;
 
-  // Enne kõnet: olukord, mida sa tead, ja helistamise nupp.
+  // Enne kõnet: olukord ja helistamise nupp.
   if (!live && !over) {
+    const first = scenario.states.find((s) => s.kind === 'loop') ?? sim.currentState;
     return (
-      <div className="gr-enter flex flex-1 flex-col gap-4">
-        <VideoStage state={sim.currentState} />
-        <KnownCard scenario={scenario} compact />
-        <div className="flex flex-1 items-center justify-center py-4">
-          <DialButton onCall={sim.startCall} disabled={sim.phase !== 'ready'} busy={sim.phase === 'connecting'} />
+      <div className="gr-enter flex flex-1 flex-col gap-3">
+        <VideoStage state={first}>
+          <p className="text-xl font-semibold leading-6 tracking-[-0.02em] text-fg">{scenario.brief.headline}</p>
+        </VideoStage>
+        <KnownCard scenario={scenario} />
+        <div className="flex flex-1 items-center justify-center py-3">
+          <DialButton onCall={sim.startCall} disabled={sim.phase === 'connecting'} busy={sim.phase === 'connecting'} />
         </div>
-        {sim.error ? (
-          <Text size="sm" tone="danger" className="text-center">
-            {sim.error}
-          </Text>
-        ) : null}
+        {error}
       </div>
     );
   }
@@ -56,22 +50,15 @@ export function SimulationView({ scenario }: { scenario: PublicScenario }) {
             : 'listening';
 
   return (
-    <div className="gr-enter flex h-[calc(100dvh-6.5rem)] min-h-[460px] flex-col gap-3">
-      <CallHud callMs={sim.callMs} activity={activity} level={Math.max(sim.levels.caller, sim.levels.dispatcher)} />
-      <VideoStage state={sim.currentState} />
+    <div className="gr-enter flex h-[calc(100dvh-4.5rem)] min-h-[460px] flex-col gap-3">
+      <VideoStage state={sim.currentState} compact>
+        <CallHud callMs={sim.callMs} activity={activity} level={Math.max(sim.levels.caller, sim.levels.dispatcher)} />
+      </VideoStage>
 
       {over ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-          {sim.endingText ? <Text className="text-lg font-medium">{sim.endingText}</Text> : null}
-          {sim.error ? (
-            <Text size="sm" tone="danger">
-              {sim.error}
-            </Text>
-          ) : (
-            <Text tone="muted" className="gr-pulse">
-              Analüüsin kõnet…
-            </Text>
-          )}
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-2 text-center">
+          {sim.endingText ? <p className="text-[22px] font-semibold leading-7 tracking-[-0.02em] text-fg">{sim.endingText}</p> : null}
+          {error ?? <p className="gr-pulse text-sm text-muted">Analüüsin kõnet…</p>}
         </div>
       ) : (
         <>
@@ -82,12 +69,8 @@ export function SimulationView({ scenario }: { scenario: PublicScenario }) {
           ) : (
             <LiveTranscript segments={sim.transcript} partial={sim.partial} />
           )}
-          {sim.error ? (
-            <Text size="sm" tone="danger" className="text-center">
-              {sim.error}
-            </Text>
-          ) : null}
-          <KnownCard scenario={scenario} compact />
+          {error}
+          <KnownCard scenario={scenario} />
           {showKeyboard ? <TextFallback onSend={sim.sendText} /> : null}
           <div className="flex flex-none items-start justify-between px-2 pb-1">
             <RoundButton label="klaviatuur" active={showKeyboard} onClick={() => setShowKeyboard((v) => !v)}>
