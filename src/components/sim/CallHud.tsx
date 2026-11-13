@@ -20,7 +20,7 @@ export function CallHud({ callMs, activity, level }: { callMs: number; activity:
     <div className="flex flex-none flex-col items-center gap-0.5 text-center">
       <p className="text-[28px] font-semibold leading-8 tracking-[-0.02em] text-fg">Häirekeskus</p>
       <p className={cx('text-[15px] leading-5 text-muted', connecting && 'gr-pulse')}>
-        {connecting ? activityLabel.connecting : <span className="font-mono tabular-nums">{formatMs(callMs)}</span>}
+        {connecting ? activityLabel.connecting : <span className="tabular-nums">{formatMs(callMs)}</span>}
         {connecting ? null : <span> · {activityLabel[activity]}</span>}
       </p>
       {/* Helinivoo: viis tulpa, mille läbipaistvus järgib häält (Graphite: liigub ainult värv ja läbipaistvus). */}

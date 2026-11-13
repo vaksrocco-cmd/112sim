@@ -28,7 +28,7 @@ export function ReportView({ session, report }: { session: CallSession; report: 
             <div key={r.id}>
               <Stack direction="row" align="between">
                 <Text>{r.label}</Text>
-                <Text mono>
+                <Text className="tabular-nums">
                   {r.points}/{r.maxPoints}
                 </Text>
               </Stack>
@@ -37,7 +37,7 @@ export function ReportView({ session, report }: { session: CallSession; report: 
                 {r.why}
               </Text>
               {r.evidence ? (
-                <Text size="sm" mono>
+                <Text size="sm">
                   „{r.evidence}“
                 </Text>
               ) : null}
