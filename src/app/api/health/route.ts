@@ -8,7 +8,9 @@ export const dynamic = 'force-dynamic';
 export function GET() {
   return NextResponse.json({
     ...llmStatus(),
-    tts: process.env.TTS_PROVIDER || 'tartunlp',
+    elevenlabs: Boolean(process.env.ELEVENLABS_API_KEY),
+    stt: process.env.ELEVENLABS_API_KEY ? 'elevenlabs' : 'groq',
+    tts: process.env.ELEVENLABS_API_KEY ? 'elevenlabs' : process.env.TTS_PROVIDER || 'tartunlp',
     supabase: supabaseConfigured(),
     voiceProvider: process.env.NEXT_PUBLIC_VOICE_PROVIDER ?? 'mock',
   });

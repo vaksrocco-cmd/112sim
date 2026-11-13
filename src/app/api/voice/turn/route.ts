@@ -52,7 +52,9 @@ export async function POST(req: Request) {
   const system =
     loadPrompt('dispatcher', {
       dispatcherWhitelist: scenario.dispatcherWhitelist.map((l) => `- ${l}`).join('\n'),
-    }) + (dispatched ? '\n\nOLEK: kiirabi on JUBA välja saadetud. Ära saada seda uuesti; anna juhiseid ja jää liinile.' : '');
+    }) +
+    '\n\nTÄHTIS: kui kutsud tööriista, ütle ALATI samas vastuses ka üks lause helistajale. Vasta lühidalt: üks kuni kaks lauset.' +
+    (dispatched ? '\n\nOLEK: kiirabi on JUBA välja saadetud. Ära saada seda uuesti; anna juhiseid ja jää liinile.' : '');
   // Kõne algab päästekorraldaja tervitusega; anna mudelile ette, et helistaja on liinil.
   const messages: LlmMessage[] =
     parsed.data.messages[0].role === 'assistant'
