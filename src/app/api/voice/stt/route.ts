@@ -16,7 +16,7 @@ const HINT = 'Hädaabikõne Eestis. Helistaja räägib eesti keeles, mis juhtus,
 async function elevenLabsTranscribe(audio: Blob, filename: string): Promise<string> {
   const form = new FormData();
   form.append('file', audio, filename);
-  form.append('model_id', process.env.ELEVENLABS_STT_MODEL || 'scribe_v2');
+  form.append('model_id', process.env.ELEVENLABS_STT_MODEL || 'scribe_v3');
   form.append('language_code', 'et');
   form.append('tag_audio_events', 'false');
   const ctrl = new AbortController();
