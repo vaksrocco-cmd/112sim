@@ -22,3 +22,4 @@ supabase/.temp/
 .vscode/*
 !.vscode/extensions.json
 coverage/
+.vercel
