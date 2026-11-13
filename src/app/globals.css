@@ -63,11 +63,6 @@
   0%, 100% { opacity: 0.25; }
   50% { opacity: 0.9; }
 }
-/* Peen punktiraster taustal. */
-.dots {
-  background-image: radial-gradient(var(--color-border) 1px, transparent 1px);
-  background-size: 18px 18px;
-}
 
 html,
 body {

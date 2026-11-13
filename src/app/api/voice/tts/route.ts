@@ -1,13 +1,16 @@
 // HÄÄL. KNOWLEDGE.md 9.1: tekst -> eestikeelne kõne.
-// Päring: POST { text } -> heli. Pakkuja: ElevenLabs (voog, kiire), kui ELEVENLABS_API_KEY on olemas;
-// muidu (või vea korral) TartuNLP avalik API (tasuta, aga aeglasem). 501/502 = klient kasutab brauseri häält.
-// Dokumentatsioon: https://elevenlabs.io/docs/api-reference/text-to-speech/stream
-//   NB: vaikimisi mudel eleven_multilingual_v2 EI oska eesti keelt; eleven_v3_conversational oskab ja oli mõõtes kõige kiirem (esimene bait ~0,16 s).
+// Päring: POST { text, emotion? } -> heli.
+// Põhipakkuja on TartuNLP (Tartu Ülikool): eesti emakeelega hääled, õige hääldus ja kohanimed, ~1 s lause kohta.
+// ElevenLabs on ainult varu: selle kontol on ainult inglise aktsendiga hääled ja tasuta pakett on 10 000 märki kuus.
+// 501/502 = klient kasutab brauseri häält.
 import { z } from 'zod';
 
 export const maxDuration = 30;
 
-const Body = z.object({ text: z.string().min(1).max(600) });
+const Body = z.object({ text: z.string().min(1).max(600), emotion: z.enum(['calm', 'firm', 'urgent']).optional() });
+
+/** Toon: kindlam ja tungivam hääl räägib veidi kiiremini (valjus lisandub brauseris). */
+const SPEED = { calm: 1, firm: 1.08, urgent: 1.16 } as const;
 
 async function timed(url: string, init: RequestInit, ms: number): Promise<Response | null> {
   const ctrl = new AbortController();
@@ -26,34 +29,43 @@ export async function POST(req: Request) {
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return new Response('bad_request', { status: 400 });
   const { text } = parsed.data;
-  if (process.env.TTS_PROVIDER === 'browser') return new Response('tts_not_configured', { status: 501 });
+  const emotion = parsed.data.emotion ?? 'calm';
+  const provider = process.env.TTS_PROVIDER || 'tartunlp';
+  if (provider === 'browser') return new Response('tts_not_configured', { status: 501 });
 
-  if (process.env.ELEVENLABS_API_KEY) {
-    const voice = process.env.ELEVENLABS_VOICE_ID || 'JBFqnCBsd6RMkjVDRZzb';
-    const res = await timed(
-      `https://api.elevenlabs.io/v1/text-to-speech/${voice}/stream?output_format=mp3_44100_64`,
+  const tartu = () =>
+    timed(
+      'https://api.tartunlp.ai/text-to-speech/v2',
       {
         method: 'POST',
-        headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY, 'content-type': 'application/json' },
-        body: JSON.stringify({ text, model_id: process.env.ELEVENLABS_TTS_MODEL || 'eleven_v3_conversational', language_code: 'et' }),
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ text, speaker: process.env.TARTUNLP_SPEAKER || 'mari', speed: SPEED[emotion] }),
       },
-      8000,
-    );
-    if (res) return new Response(res.body, { headers: { 'content-type': 'audio/mpeg', 'cache-control': 'no-store', 'x-tts': 'elevenlabs' } });
-    console.error('[voice/tts] ElevenLabs ebaõnnestus, proovin TartuNLP-d');
-  }
+      6000,
+    ).then((res) => (res ? { res, type: res.headers.get('content-type') ?? 'audio/wav', name: 'tartunlp' } : null));
 
-  const res = await timed(
-    'https://api.tartunlp.ai/text-to-speech/v2',
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ text, speaker: process.env.TARTUNLP_SPEAKER || 'mari' }),
-    },
-    15000,
-  );
-  if (!res) return new Response('tts_failed', { status: 502 });
-  return new Response(res.body, {
-    headers: { 'content-type': res.headers.get('content-type') ?? 'audio/wav', 'cache-control': 'no-store', 'x-tts': 'tartunlp' },
-  });
+  const eleven = () =>
+    process.env.ELEVENLABS_API_KEY
+      ? timed(
+          `https://api.elevenlabs.io/v1/text-to-speech/${process.env.ELEVENLABS_VOICE_ID || 'XrExE9yKIg1WjnnlVkGX'}/stream?output_format=mp3_44100_64`,
+          {
+            method: 'POST',
+            headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY, 'content-type': 'application/json' },
+            body: JSON.stringify({
+              text,
+              model_id: process.env.ELEVENLABS_TTS_MODEL || 'eleven_v3_conversational',
+              language_code: 'et',
+              voice_settings: { speed: SPEED[emotion], stability: emotion === 'calm' ? 0.6 : 0.4 },
+            }),
+          },
+          8000,
+        ).then((res) => (res ? { res, type: 'audio/mpeg', name: 'elevenlabs' } : null))
+      : Promise.resolve(null);
+
+  const order = provider === 'elevenlabs' ? [eleven, tartu] : [tartu, eleven];
+  for (const attempt of order) {
+    const out = await attempt();
+    if (out) return new Response(out.res.body, { headers: { 'content-type': out.type, 'cache-control': 'no-store', 'x-tts': out.name } });
+  }
+  return new Response('tts_failed', { status: 502 });
 }

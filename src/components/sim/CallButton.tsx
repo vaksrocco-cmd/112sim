@@ -12,11 +12,7 @@ const Phone = ({ down }: { down?: boolean }) => (
 /** Valimisekraan: number, silt ja roheline helistamisnupp. */
 export function DialButton({ onCall, disabled, busy }: { onCall: () => void; disabled?: boolean; busy?: boolean }) {
   return (
-    <div className="flex flex-col items-center gap-4">
-      <div className="text-center">
-        <p className="text-[44px] font-light leading-none tracking-[0.04em] text-fg">112</p>
-        <p className="mt-1 text-sm text-muted">Hädaabi · simulatsioon</p>
-      </div>
+    <div className="flex flex-col items-center gap-2">
       <button
         type="button"
         onClick={onCall}
@@ -26,6 +22,7 @@ export function DialButton({ onCall, disabled, busy }: { onCall: () => void; dis
       >
         <Phone />
       </button>
+      <span className="text-sm font-medium text-fg">{busy ? 'Ühendan…' : 'Helista 112'}</span>
     </div>
   );
 }

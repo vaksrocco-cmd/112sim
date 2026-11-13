@@ -13,6 +13,11 @@ const SILENCE_END_MS = 550; // nii pikk paus lõpetab lause
 const MAX_UTTERANCE_MS = 25000;
 const IDLE_RESTART_MS = 6000; // vaikuses alusta salvestust uuesti, et lause ette ei jääks pikka tühja juppi
 
+/** Päästekorraldaja toon: mida ebamäärasem helistaja, seda kindlam ja valjem hääl. */
+type Emotion = 'calm' | 'firm' | 'urgent';
+const TAGS: Record<string, Emotion> = { rahulik: 'calm', kindel: 'firm', tungiv: 'urgent' };
+const VOLUME: Record<Emotion, number> = { calm: 0.7, firm: 0.88, urgent: 1 };
+
 type Msg = { role: 'user' | 'assistant'; content: string };
 type TurnLine =
   | { type: 'text'; delta: string }
@@ -46,12 +51,12 @@ export function createCascadeVoice(): VoiceProvider {
   const emit = (seg: Omit<TranscriptSegment, 'id'>) => ev?.onSegment({ ...seg, id: id() });
 
   // ───────── Kõnesüntees ─────────
-  async function fetchTts(text: string): Promise<string | null> {
+  async function fetchTts(text: string, emotion: Emotion): Promise<string | null> {
     try {
       const res = await fetch('/api/voice/tts', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, emotion }),
       });
       return res.ok ? URL.createObjectURL(await res.blob()) : null;
     } catch {
@@ -59,9 +64,10 @@ export function createCascadeVoice(): VoiceProvider {
     }
   }
 
-  function playUrl(url: string): Promise<void> {
+  function playUrl(url: string, volume: number): Promise<void> {
     return new Promise((resolve) => {
       const a = new Audio(url);
+      a.volume = volume;
       currentAudio = a;
       const done = () => {
         URL.revokeObjectURL(url);
@@ -87,9 +93,9 @@ export function createCascadeVoice(): VoiceProvider {
   }
 
   /** Lause läheb järjekorda; heli küsitakse kohe, et järgmine lause oleks valmis, kui eelmine lõpeb. */
-  function say(text: string) {
+  function say(text: string, emotion: Emotion = 'calm') {
     const gen = speakGen;
-    const urlP = fetchTts(text);
+    const urlP = fetchTts(text, emotion);
     speaking++;
     speakChain = speakChain.then(async () => {
       try {
@@ -99,7 +105,7 @@ export function createCascadeVoice(): VoiceProvider {
           return;
         }
         ev?.onLevel?.('dispatcher', 0.6);
-        await (url ? playUrl(url) : playBrowser(text));
+        await (url ? playUrl(url, VOLUME[emotion]) : playBrowser(text));
       } finally {
         speaking--;
         if (!speaking) {
@@ -122,6 +128,8 @@ export function createCascadeVoice(): VoiceProvider {
     const ctrl = new AbortController();
     turnAbort = ctrl;
     const gen = speakGen;
+    let raw = '';
+    let emotion: Emotion = 'calm';
     let full = '';
     let pending = '';
     let startMs: CallMs | null = null;
@@ -134,10 +142,10 @@ export function createCascadeVoice(): VoiceProvider {
         const m = pending.match(/^([\s\S]*?[.!?…]+)\s+/);
         if (!m) break;
         pending = pending.slice(m[0].length);
-        if (m[1].trim() && gen === speakGen) say(m[1].trim());
+        if (m[1].trim() && gen === speakGen) say(m[1].trim(), emotion);
       }
       if (final && pending.trim() && gen === speakGen) {
-        say(pending.trim());
+        say(pending.trim(), emotion);
         pending = '';
       }
     };
@@ -145,8 +153,15 @@ export function createCascadeVoice(): VoiceProvider {
     const onLine = (line: TurnLine) => {
       if (line.type === 'text') {
         startMs ??= now();
-        full += line.delta;
-        pending += line.delta;
+        raw += line.delta;
+        // Vastus algab toonimärgendiga, nt "[kindel] ...". Märgendit ei näidata ega loeta ette.
+        const lead = raw.trimStart();
+        if (lead.startsWith('[') && !lead.includes(']')) return; // märgend on veel pooleli
+        const tag = lead.match(/^\[([^\]]*)\]\s*/);
+        if (tag) emotion = TAGS[tag[1].trim().toLowerCase()] ?? emotion;
+        const clean = (tag ? lead.slice(tag[0].length) : lead).replace(/\[(rahulik|kindel|tungiv)\]\s*/gi, '');
+        pending += clean.slice(full.length);
+        full = clean;
         ev?.onPartial?.('dispatcher', full);
         flush(false);
       } else if (line.type === 'tool') {

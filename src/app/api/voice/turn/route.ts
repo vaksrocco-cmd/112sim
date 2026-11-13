@@ -54,6 +54,7 @@ export async function POST(req: Request) {
       dispatcherWhitelist: scenario.dispatcherWhitelist.map((l) => `- ${l}`).join('\n'),
     }) +
     '\n\nTÄHTIS: kui kutsud tööriista, ütle ALATI samas vastuses ka üks lause helistajale. Vasta lühidalt: üks kuni kaks lauset.' +
+    '\n\nTOON: alusta IGA vastust täpselt ühe märgendiga (seda ei loeta ette): [rahulik] tavaline toon; [kindel] kui helistaja ei vastanud su küsimusele või vastas ebamääraselt: korda küsimust lühemalt ja kindlamalt; [tungiv] kui helistaja on jätnud vastamata juba kaks korda või olukord halvenes: väga lühike ja nõudlik lause. Näide: "[kindel] Mis linnas või asulas te olete?"' +
     (dispatched ? '\n\nOLEK: kiirabi on JUBA välja saadetud. Ära saada seda uuesti; anna juhiseid ja jää liinile.' : '');
   // Kõne algab päästekorraldaja tervitusega; anna mudelile ette, et helistaja on liinil.
   const messages: LlmMessage[] =
@@ -88,7 +89,7 @@ export async function POST(req: Request) {
         // Mudel vastab tihti ainult tööriistakutsega. Helistaja ei tohi kuulda vaikust:
         // küsi kohe juurde lause, mida öelda (või kasuta kindlat lõpulauset).
         if (!spoke && used.includes('end_call')) {
-          send({ type: 'text', delta: 'Kiirabi on kohal. Võite kõne lõpetada.' });
+          send({ type: 'text', delta: '[rahulik] Kiirabi on kohal. Võite kõne lõpetada.' });
         } else if (!spoke && used.includes('dispatch_ambulance')) {
           for await (const delta of llmStream({
             tier: 'fast',
