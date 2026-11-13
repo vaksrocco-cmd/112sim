@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { Logo } from '@/components/ui';
 
 const SIM = '/sim/vanaema-insult';
+const HOST = '/host';
 
 const SOURCES = {
   err: 'https://www.err.ee/909525/uha-enam-numbrile-112-helistajaid-soovib-abi-metsloomale',
@@ -12,9 +13,9 @@ const SOURCES = {
   callersim: 'https://www.helse-stavanger.no/en/research-education/resources-and-networks/rakos/oversikt-over-prosjekter/callersim/',
 };
 
-function Cta({ children }: { children: ReactNode }) {
+function Cta({ children, href = HOST }: { children: ReactNode; href?: string }) {
   return (
-    <Link href={SIM} className="gr-motion flex h-14 w-full items-center justify-center rounded-full bg-primary text-[17px] font-semibold text-primary-fg hover:opacity-[0.88]">
+    <Link href={href} className="gr-motion flex h-14 w-full items-center justify-center rounded-full bg-primary text-[17px] font-semibold text-primary-fg hover:opacity-[0.88]">
       {children}
     </Link>
   );
@@ -49,7 +50,12 @@ export default function Home() {
         <Logo />
         <h1 className="text-[40px] font-semibold leading-[1.02] tracking-[-0.045em] text-fg">Hädaabikõnes loeb iga sekund.</h1>
         <p className="text-[19px] leading-7 text-muted">Keegi pole seda kõnet kunagi harjutanud. Tee see siin ära enne, kui seda päriselt vaja on.</p>
-        <Cta>Proovi kõnet</Cta>
+        <div className="flex flex-col gap-3">
+          <Cta>Alusta kursust</Cta>
+          <Link href={SIM} className="gr-motion flex h-12 w-full items-center justify-center rounded-full bg-surface-2 text-base font-medium text-fg hover:bg-border">
+            Proovi üksi telefonis
+          </Link>
+        </div>
       </header>
 
       <section>
@@ -62,14 +68,14 @@ export default function Home() {
 
       <section>
         <Label>Lahendus</Label>
-        <Step n="1" text="Näed olukorda." />
-        <Step n="2" text="Helistad ja räägid päriselt." />
+        <Step n="1" text="Skaneerid koodi suurelt ekraanilt." />
+        <Step n="2" text="Näed olukorda ja valid 112." />
         <Step n="3" text="Olukord muutub. Kas märkad?" />
         <Step n="4" text="Näed, mis jäi ütlemata." />
       </section>
 
       <footer className="flex flex-col gap-5">
-        <Cta>Helista harjutuskõne</Cta>
+        <Cta>Alusta kursust</Cta>
         <p className="text-xs leading-5 text-subtle">
           Heli ei salvestata. Ei ole Häirekeskuse ametlik toode.{' '}
           <a href={SOURCES.callersim} target="_blank" rel="noreferrer" className="underline underline-offset-2">
