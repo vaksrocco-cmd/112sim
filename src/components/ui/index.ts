@@ -9,3 +9,4 @@ export { Progress } from './Progress';
 export { SimBanner } from './SimBanner';
 export { Stack } from './Stack';
 export { Text } from './Text';
+export { Logo } from './Logo';

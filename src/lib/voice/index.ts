@@ -7,8 +7,9 @@ import type { VoiceProvider, VoiceProviderKind } from './VoiceProvider';
 
 export function resolveVoiceKind(search?: string | null): VoiceProviderKind {
   const fromUrl = search ? new URLSearchParams(search).get('voice') : null;
-  const v = (fromUrl ?? process.env.NEXT_PUBLIC_VOICE_PROVIDER ?? 'mock') as VoiceProviderKind;
-  return ['mock', 'openai', 'cascade', 'elevenlabs'].includes(v) ? v : 'mock';
+  const v = (fromUrl ?? process.env.NEXT_PUBLIC_VOICE_PROVIDER ?? 'cascade') as VoiceProviderKind;
+  // Vaikimisi päris häälkõne (kaskaad). ?voice=mock mängib ette salvestatud näidiskõne.
+  return ['mock', 'openai', 'cascade', 'elevenlabs'].includes(v) ? v : 'cascade';
 }
 
 export function createVoiceProvider(

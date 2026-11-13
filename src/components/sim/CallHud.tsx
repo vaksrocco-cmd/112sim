@@ -1,28 +1,34 @@
 'use client';
-import type { SimPhase } from '@/lib/sim/useSimulation';
-import { Badge, Stack, Text } from '@/components/ui';
+// Kõne päis nagu telefonis: nimi keskel, all kestus ja mis parajasti toimub.
+import { cx } from '@/components/ui/cx';
 import { formatMs } from './format';
 
-const labels: Record<SimPhase, string> = {
-  idle: 'Ootel',
-  intro: 'Sissejuhatus',
-  ready: 'Valmis',
-  connecting: 'Ühendan',
-  in_call: 'Kõne käib',
-  wrapping_up: 'Abi on kohal',
-  ended: 'Kõne lõppes',
-  analyzing: 'Analüüs',
+export type CallActivity = 'connecting' | 'listening' | 'hearing' | 'transcribing' | 'speaking' | 'ended';
+
+const activityLabel: Record<CallActivity, string> = {
+  connecting: 'helistan…',
+  listening: 'kuulab sind',
+  hearing: 'sa räägid',
+  transcribing: 'saab aru…',
+  speaking: 'räägib',
+  ended: 'kõne lõppes',
 };
 
-export function CallHud({ phase, callMs, stateId }: { phase: SimPhase; callMs: number; stateId: string }) {
-  const live = phase === 'in_call' || phase === 'wrapping_up';
+export function CallHud({ callMs, activity, level }: { callMs: number; activity: CallActivity; level: number }) {
+  const connecting = activity === 'connecting';
   return (
-    <Stack direction="row" align="between">
-      <Badge tone={live ? 'accent' : 'neutral'}>{labels[phase]}</Badge>
-      <Text mono size="lg">
-        {formatMs(callMs)}
-      </Text>
-      {process.env.NODE_ENV !== 'production' ? <Badge>{stateId}</Badge> : <span />}
-    </Stack>
+    <div className="flex flex-none flex-col items-center gap-0.5 text-center">
+      <p className="text-[28px] font-semibold leading-8 tracking-[-0.02em] text-fg">Häirekeskus</p>
+      <p className={cx('text-[15px] leading-5 text-muted', connecting && 'gr-pulse')}>
+        {connecting ? activityLabel.connecting : <span className="font-mono tabular-nums">{formatMs(callMs)}</span>}
+        {connecting ? null : <span> · {activityLabel[activity]}</span>}
+      </p>
+      {/* Helinivoo: viis tulpa, mille läbipaistvus järgib häält (Graphite: liigub ainult värv ja läbipaistvus). */}
+      <div className="mt-1 flex h-3 items-end gap-1" aria-hidden>
+        {[0.15, 0.35, 0.55, 0.75, 0.95].map((t) => (
+          <span key={t} className="gr-motion h-3 w-1 rounded-full bg-fg" style={{ opacity: activity === 'ended' ? 0.1 : level >= t ? 0.9 : 0.18 }} />
+        ))}
+      </div>
+    </div>
   );
 }
