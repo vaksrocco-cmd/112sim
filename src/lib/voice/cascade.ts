@@ -9,7 +9,7 @@ import type { DispatcherToolCall, VoiceEvents, VoiceProvider, VoiceStartOptions 
 const GREETING = 'Häirekeskus kuuleb, mis juhtus?';
 const TICK_MS = 50;
 const SPEECH_MIN_MS = 250; // nii kaua peab heli kestma, et see loeks kõneks
-const SILENCE_END_MS = 750; // nii pikk paus lõpetab lause
+const SILENCE_END_MS = 550; // nii pikk paus lõpetab lause
 const MAX_UTTERANCE_MS = 25000;
 const IDLE_RESTART_MS = 6000; // vaikuses alusta salvestust uuesti, et lause ette ei jääks pikka tühja juppi
 
