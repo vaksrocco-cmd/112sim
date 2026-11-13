@@ -36,7 +36,7 @@ Ehitajate juhend (Sander, Ats, Aaron) on `CONTRIBUTING.md`. Saada neile see link
 
 ## Osa B. Mis jääb sulle (umbes 30 minutit, mitte kood)
 
-### B0. Repo seaded (3 min, tee kohe; sama loend on issue #6)
+### B0. ✅ TEHTUD (Claude tegi brauseris). Repo seaded (3 min, tee kohe; sama loend on issue #6)
 1. **Merge'imine:** Settings → General → Pull Requests → jäta sisse ainult **Allow merge commits**. Võta maha *Allow squash merging* ja *Allow rebase merging*. *Automatically delete head branches* jäta maha.
 2. **`main`-i lukk:** Settings → Rules → Rulesets → **New ruleset → New branch ruleset**:
    - Name `main`, Enforcement status **Active**
@@ -47,11 +47,15 @@ Ehitajate juhend (Sander, Ats, Aaron) on `CONTRIBUTING.md`. Saada neile see link
 
    Tulemus: keegi peale sinu ei saa midagi `main`-i panna ilma sinu heakskiiduta; sina saad adminina mööda.
 
-### B1. Tiimikaaslaste kutsed
+### B1. ✅ Tiimikaaslaste kutsed (kutsed saadetud: sndr999, minaolenats, Sylembium; nad peavad need vastu võtma)
 **Settings → Collaborators → Add people** → Sanderi, Atsi, Aaroni (ja soovi korral Otto) GitHubi kasutajanimed. Nad peavad kutse vastu võtma (e-post või https://github.com/notifications). Seejärel määra igaüks tema issue'le (issue lehel paremal **Assignees**).
 
-### B2. OpenAI (5 min)
-platform.openai.com → **API keys** → loo võti. Kontrolli, et kontol on krediiti. Pane **kulupiir** (Billing → Limits), näiteks 30 €.
+### B2. Claude API võti (5 min)
+Claude Max 5x sisaldab **100 $ API krediiti kuus**, aga see tuleb ise siduda:
+1. claude.ai → **Settings → Billing** → **API credits** → **Link organization**. Kui Console'i organisatsiooni veel pole, loo see (platform.claude.com).
+2. Kontrolli platform.claude.com → **Billing**: krediit on real *Promotional credits*. See aegub iga arveldusperioodi lõpus ja Claude Code'is seda kasutada ei saa.
+3. platform.claude.com → **API keys → Create key** (nimi `112sim`). Kopeeri võti kohe: hiljem seda enam ei näe.
+4. **Limits** lehel pane kulupiir (nt 50 $), et vigane tsükkel krediiti ära ei sööks.
 
 ### B3. Supabase (5 min)
 supabase.com → **New project** (regioon Euroopas). Kui valmis: **SQL Editor** → kleebi `KNOWLEDGE.md` peatüki 12 SQL → **Run**. Siis **Project Settings → API**: kopeeri *Project URL* ja *service_role* võti.

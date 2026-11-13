@@ -11,7 +11,7 @@ Kontrolli `git branch --show-current`. Kui haru ei ole üks allolevatest, küsi 
 | Haru | Kes | Moodul | Failid |
 |---|---|---|---|
 | `feat/sim` | Rocco | integraator | karkass, ühised failid, `lib/sim/**`, simulatsioonileht, `components/sim/**` (v.a `VideoStage`, `ScenarioIntro`), `/api/scenarios`, `/api/sessions`, `lib/db/**` |
-| `feat/voice` | Sander | hääl | `lib/voice/**`, `/api/realtime/session`, `prompts/dispatcher.et.md` |
+| `feat/voice` | Sander | hääl | `lib/voice/**` (v.a `VoiceProvider.ts`, `index.ts`), `/api/voice/**`, `prompts/dispatcher.et.md` |
 | `feat/brain` | Ats | aju | `lib/agents/**` (v.a `dispatcher.et.md`), `lib/director/**`, `/api/extract`, `/api/analyze`, `fixtures/**` |
 | `feat/stage` | Aaron | lava ja raport | `public/clips/**`, `components/sim/VideoStage.tsx`, `ScenarioIntro.tsx`, `components/report/**`, raportileht |
 
@@ -25,7 +25,7 @@ Kontrolli `git branch --show-current`. Kui haru ei ole üks allolevatest, küsi 
 7. Commit'i sõnum inglise keeles, üks rida, käskivas kõneviisis.
 
 ## Kood: kõvad reeglid
-1. **Muuda ainult oma mooduli faile.** Ühiseid faile muudab ainult integraator: `src/lib/types.ts`, `src/lib/facts.ts`, `src/lib/scenarios/**`, `src/components/ui/**`, `package.json`, lukufail, `supabase/**`, `.github/**`, `CLAUDE.md`, `AGENTS.md`, `KNOWLEDGE.md`, `CONTRIBUTING.md`, `ROCCO.md`. Kui vajad seal muudatust, **peatu ja ütle inimesele**, mida ja miks.
+1. **Muuda ainult oma mooduli faile.** Ühiseid faile muudab ainult integraator: `src/lib/types.ts`, `src/lib/facts.ts`, `src/lib/scenarios/**`, `src/lib/llm/**`, `src/lib/voice/VoiceProvider.ts`, `src/components/ui/**`, `package.json`, lukufail, `supabase/**`, `.github/**`, `CLAUDE.md`, `AGENTS.md`, `KNOWLEDGE.md`, `CONTRIBUTING.md`, `ROCCO.md`. Kui vajad seal muudatust, **peatu ja ütle inimesele**, mida ja miks.
 2. **Lepingud on siduvad.** Kasuta täpselt `src/lib/types.ts` tüüpe. Ära loo paralleelseid ega „ajutisi“ tüüpe.
 3. **Võtmed ja stsenaariumi tõde (`truth`) ei lahku serverist.** Ükski saladus ei kanna `NEXT_PUBLIC_` eesliidet.
 4. **Režissöör on puhas deterministlik funktsioon:** ei võrku, ei `Date.now()`-i, ei juhuslikkust, ei LLM-i.
@@ -34,7 +34,7 @@ Kontrolli `git branch --show-current`. Kui haru ei ole üks allolevatest, küsi 
 7. **Iga moodul töötab `mockVoice`-i ja fixture'itega** ilma teiste mooduliteta.
 8. **UI:** ainult `src/components/ui/` primitiivid ja tokenid. Kõvakodeeritud värve ja fonte ei kasutata. Välimuse lihvib integraator.
 9. **Keel:** kasutajale nähtav tekst eesti keeles; kood, muutujad ja commitid inglise keeles.
-10. **API-de nimed võta dokumentatsioonist, mitte mälust** (OpenAI Realtime: https://developers.openai.com/api/docs/guides/realtime-webrtc).
+10. **API-de nimed võta dokumentatsioonist, mitte mälust** (Claude API: https://platform.claude.com/docs; Web Speech API: MDN).
 11. **Uusi sõltuvusi ega migratsioone ei lisa.** Kui vajad paketti, peatu ja ütle inimesele.
 12. Kui see fail või `KNOWLEDGE.md` tundub vale või puudulik, **ära improviseeri**: kirjelda probleemi inimesele.
 

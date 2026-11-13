@@ -1,0 +1,137 @@
+{
+  "id": "good_call",
+  "scenarioId": "vanaema-insult",
+  "segments": [
+    {
+      "speaker": "dispatcher",
+      "startMs": 800,
+      "endMs": 2600,
+      "text": "Häirekeskus kuuleb, mis juhtus?"
+    },
+    {
+      "speaker": "caller",
+      "startMs": 3000,
+      "endMs": 8500,
+      "text": "Tere, mu vanaema hakkas äkki segaselt rääkima, ta ei leia sõnu."
+    },
+    {
+      "speaker": "dispatcher",
+      "startMs": 9500,
+      "endMs": 11000,
+      "text": "Mis aadressil te olete?"
+    },
+    {
+      "speaker": "caller",
+      "startMs": 11500,
+      "endMs": 15000,
+      "text": "Männikäbi tee 14, Haabneeme, Viimsi vald."
+    },
+    {
+      "speaker": "dispatcher",
+      "startMs": 16000,
+      "endMs": 18500,
+      "text": "Kordan: Männikäbi tee 14, Haabneeme. Kas õige?"
+    },
+    {
+      "speaker": "caller",
+      "startMs": 19000,
+      "endMs": 19800,
+      "text": "Jah, õige."
+    },
+    {
+      "speaker": "dispatcher",
+      "startMs": 20500,
+      "endMs": 23000,
+      "text": "Kui vana ta on ja kas ta on teadvusel?"
+    },
+    {
+      "speaker": "caller",
+      "startMs": 23500,
+      "endMs": 28000,
+      "text": "Ta on 78, teadvusel, istub laua taga, aga jutt on täiesti segane."
+    },
+    {
+      "speaker": "dispatcher",
+      "startMs": 29000,
+      "endMs": 30500,
+      "text": "Kas ta hingab normaalselt?"
+    },
+    {
+      "speaker": "caller",
+      "startMs": 31000,
+      "endMs": 32000,
+      "text": "Jah, hingab."
+    },
+    {
+      "speaker": "dispatcher",
+      "startMs": 33000,
+      "endMs": 34500,
+      "text": "Millal see algas?"
+    },
+    {
+      "speaker": "caller",
+      "startMs": 35000,
+      "endMs": 37000,
+      "text": "Umbes viis minutit tagasi."
+    },
+    {
+      "speaker": "dispatcher",
+      "startMs": 38500,
+      "endMs": 46000,
+      "text": "Kiirabi on teie poole teel. Jääge tema juurde ja tehke välisuks lahti. Öelge mulle kohe, kui midagi muutub."
+    },
+    {
+      "speaker": "caller",
+      "startMs": 52000,
+      "endMs": 56500,
+      "text": "Oodake, nüüd ta suunurk vajus viltu ja ta ei saa paremat kätt tõsta!"
+    },
+    {
+      "speaker": "dispatcher",
+      "startMs": 57000,
+      "endMs": 60000,
+      "text": "Selge, annan selle kiirabile edasi. Kas ta on endiselt teadvusel?"
+    },
+    {
+      "speaker": "caller",
+      "startMs": 60500,
+      "endMs": 61500,
+      "text": "Jah, on."
+    },
+    {
+      "speaker": "dispatcher",
+      "startMs": 70000,
+      "endMs": 73500,
+      "text": "Kiirabi on kohal. Võite kõne lõpetada."
+    }
+  ],
+  "toolCalls": [
+    {
+      "name": "dispatch_ambulance",
+      "atMs": 38000,
+      "args": {
+        "priority": "A",
+        "address": "Männikäbi tee 14, Haabneeme",
+        "summary": "78-aastane naine, äkki tekkinud kõnehäire ja segasus"
+      }
+    },
+    {
+      "name": "end_call",
+      "atMs": 74000
+    }
+  ],
+  "expect": {
+    "states": [
+      "S1",
+      "S2"
+    ],
+    "outcome": "good",
+    "score": 100,
+    "facts": {
+      "incident.atMs": 3000,
+      "location.level": "complete",
+      "location.completeAtMs": 11500,
+      "changeReports[0].atMs": 52000
+    }
+  }
+}
