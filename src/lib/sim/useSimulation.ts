@@ -238,6 +238,36 @@ export function useSimulation(scenario: PublicScenario, opts: { onReport?: (id: 
             transcriptRef.current = [...transcriptRef.current, seg];
             setTranscript(transcriptRef.current);
             setPartial(null);
+            // Kohtunik (LLM) vastab mitme sekundi pärast. Et režissöör ei karistaks helistajat selle viivituse eest,
+            // märgitakse muutusest teatamine kohe ära, kui helistaja lause sisaldab praeguse seisundi mõne sümptomi vihjet
+            // (stsenaariumi `symptoms[].hints`). Kohtunik kinnitab või täpsustab seda hiljem; varaseim aeg jääb alles.
+            if (seg.speaker === 'caller') {
+              const cur = scenario.states.find((st) => st.id === stateRef.current.id);
+              const already = factsRef.current.changeReports.some((r) => r.stateId === cur?.id);
+              if (cur?.requiresReport && !already && seg.endMs > stateRef.current.enteredAtMs) {
+                const words = (t: string) => t.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(Boolean);
+                const said = new Set(words(seg.text));
+                // Loeb ainult sümptom, mida varasemates seisundites näha ei olnud (muidu loeks "räägib segaselt" muutuseks).
+                const seenBefore = new Set(
+                  historyRef.current
+                    .filter((v) => v.stateId !== cur.id)
+                    .flatMap((v) => scenario.states.find((st) => st.id === v.stateId)?.observable ?? []),
+                );
+                const hit = scenario.symptoms
+                  .filter((sym) => cur.observable.includes(sym.id) && !seenBefore.has(sym.id))
+                  .some((sym) => sym.hints.some((h) => words(h).every((w) => said.has(w))));
+                if (hit) {
+                  factsRef.current = mergeFacts(factsRef.current, {
+                    ...factsRef.current,
+                    changeReports: [
+                      ...factsRef.current.changeReports,
+                      { stateId: cur.id, atMs: Math.max(seg.startMs, stateRef.current.enteredAtMs), quote: seg.text.split(/\s+/).slice(0, 12).join(' ') },
+                    ],
+                  });
+                  setFacts(factsRef.current);
+                }
+              }
+            }
             scheduleExtract();
           },
           onPartial(speaker, text) {

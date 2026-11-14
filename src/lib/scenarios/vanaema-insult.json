@@ -58,7 +58,11 @@
       "hints": [
         "suunurk vajus",
         "nägu viltu",
-        "üks pool näost"
+        "üks pool näost",
+        "suunurk",
+        "nägu vajus",
+        "näo pool",
+        "viltu"
       ]
     },
     {
@@ -67,7 +71,12 @@
       "hints": [
         "ei saa kätt tõsta",
         "käsi ei liigu",
-        "tass kukkus"
+        "tass kukkus",
+        "käsi ei tõuse",
+        "ei saa kätt",
+        "kätt tõsta",
+        "käsi on nõrk",
+        "käsi kukkus"
       ]
     },
     {
@@ -76,7 +85,9 @@
       "hints": [
         "vajus kokku",
         "kukkus",
-        "vajus külili"
+        "vajus külili",
+        "vajus",
+        "kokku kukkus"
       ]
     },
     {
@@ -86,7 +97,9 @@
         "ei vasta",
         "ei reageeri",
         "silmad kinni",
-        "teadvuseta"
+        "teadvuseta",
+        "ei vasta enam",
+        "ei räägi enam"
       ]
     }
   ],
@@ -139,7 +152,7 @@
         "breathing": "yes"
       },
       "requiresReport": true,
-      "reportWindowMs": 14000,
+      "reportWindowMs": 20000,
       "onsetClipUrl": "/clips/vanaema/onset_s2.mp4"
     },
     {
