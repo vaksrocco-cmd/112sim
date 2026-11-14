@@ -17,39 +17,39 @@ const goodFacts = (): CallFacts => ({
   patient: { ageSaid: true, conscious: 'yes', breathing: 'yes' },
   symptomsReported: [
     { symptom: 'speech_problem', atMs: 3000, quote: 'ta ei leia sõnu' },
-    { symptom: 'face_droop', atMs: 19000, quote: 'suunurk vajus viltu' },
+    { symptom: 'face_droop', atMs: 11000, quote: 'suunurk vajus viltu' },
   ],
-  changeReports: [{ stateId: 'S2', atMs: 19000, quote: 'nüüd ta suunurk vajus viltu' }],
+  changeReports: [{ stateId: 'S2', atMs: 11000, quote: 'nüüd ta suunurk vajus viltu' }],
   dialogue: { questionsAsked: 5, questionsAnswered: 5, contradictions: 0, offTopicTurns: 0 },
 });
 
 const started: CallEvent = { type: 'call_started', atMs: 0 };
 const dispatched: CallEvent = { type: 'ambulance_dispatched', atMs: 9000, priority: 'A', address: 'Männikäbi tee 14', summary: '' };
-const toS2: CallEvent = { type: 'state_changed', atMs: 12000, from: 'S1', to: 'S2', reason: '' };
+const toS2: CallEvent = { type: 'state_changed', atMs: 4000, from: 'S1', to: 'S2', reason: '' };
 
 const step = (nowMs: number, stateId: string, stateEnteredAtMs: number, facts: CallFacts, events: CallEvent[]) =>
   directorStep({ nowMs, scenario, stateId, stateEnteredAtMs, facts, events });
 
 describe('directorStep', () => {
-  it('moves S1 to S2 exactly at 12 s', () => {
-    expect(step(11999, 'S1', 0, emptyFacts(), [started])).toEqual([]);
-    expect(step(12000, 'S1', 0, emptyFacts(), [started])[0]).toMatchObject({ type: 'transition', to: 'S2' });
+  it('moves S1 to S2 exactly at 4 s', () => {
+    expect(step(3999, 'S1', 0, emptyFacts(), [started])).toEqual([]);
+    expect(step(4000, 'S1', 0, emptyFacts(), [started])[0]).toMatchObject({ type: 'transition', to: 'S2' });
   });
 
   it('moves S2 to S3 when the change is not reported within the window', () => {
     const facts = { ...goodFacts(), changeReports: [] };
-    expect(step(25999, 'S2', 12000, facts, [started, dispatched, toS2])).toEqual([]);
-    expect(step(26000, 'S2', 12000, facts, [started, dispatched, toS2])[0]).toMatchObject({ type: 'transition', to: 'S3' });
+    expect(step(17999, 'S2', 4000, facts, [started, dispatched, toS2])).toEqual([]);
+    expect(step(18000, 'S2', 4000, facts, [started, dispatched, toS2])[0]).toMatchObject({ type: 'transition', to: 'S3' });
   });
 
   it('asks the dispatcher to wrap up once help has arrived and the change is reported', () => {
-    expect(step(18000, 'S2', 12000, goodFacts(), [started, dispatched, toS2])).toEqual([]);
-    expect(step(19000, 'S2', 12000, goodFacts(), [started, dispatched, toS2])[0]).toMatchObject({ type: 'wrap_up' });
+    expect(step(18000, 'S2', 4000, goodFacts(), [started, dispatched, toS2])).toEqual([]);
+    expect(step(19000, 'S2', 4000, goodFacts(), [started, dispatched, toS2])[0]).toMatchObject({ type: 'wrap_up' });
   });
 
   it('finishes with a good outcome after a good call and returns nothing in an ending state', () => {
     const events: CallEvent[] = [started, dispatched, toS2, { type: 'call_ended', atMs: 31000, reason: 'dispatcher_ended' }];
-    expect(step(31000, 'S2', 12000, goodFacts(), events)).toEqual([{ type: 'finish', outcome: 'good', endingText: '' }]);
+    expect(step(31000, 'S2', 4000, goodFacts(), events)).toEqual([{ type: 'finish', outcome: 'good', endingText: '' }]);
     expect(step(31000, 'END_GOOD', 31000, goodFacts(), events)).toEqual([]);
   });
 });
@@ -76,7 +76,7 @@ describe('scoring', () => {
     durationMs: 31000,
     transcript: fixture.segments.map((s, i) => ({ ...s, id: String(i) })),
     events,
-    stateHistory: [{ stateId: 'S1', enteredAtMs: 0 }, { stateId: 'S2', enteredAtMs: 12000 }],
+    stateHistory: [{ stateId: 'S1', enteredAtMs: 0 }, { stateId: 'S2', enteredAtMs: 4000 }],
     finalFacts: facts,
   });
   const ended: CallEvent = { type: 'call_ended', atMs: 31000, reason: 'dispatcher_ended' };

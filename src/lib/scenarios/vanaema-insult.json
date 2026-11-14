@@ -181,7 +181,7 @@
       "when": [
         {
           "type": "call_elapsed",
-          "ms": 12000
+          "ms": 4000
         }
       ],
       "reason": "sümptomid süvenevad"
