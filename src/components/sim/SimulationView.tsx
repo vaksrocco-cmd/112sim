@@ -103,7 +103,7 @@ export function SimulationView({ scenario, room: roomCode }: { scenario: PublicS
         {roomCode ? (
           <p className="flex-none pt-2 text-center text-sm text-subtle">Vaata suurt ekraani</p>
         ) : (
-          <VideoStage state={intro && !introDone ? intro : first} preload={scenario.states} onEnded={() => setIntroDone(true)} />
+          <VideoStage state={intro && !introDone ? intro : first} preload={scenario.states} onEnded={() => setIntroDone(true)} sound={sim.phase !== 'connecting'} />
         )}
         <DialPad onCall={sim.startCall} busy={sim.phase === 'connecting'} onDigits={setDialed} />
         {error}
