@@ -189,7 +189,11 @@ export function useSimulation(scenario: PublicScenario, opts: { onReport?: (id: 
       facts: factsRef.current,
       events: eventsRef.current,
     });
+    // Lühike demo (vaikimisi, ilma ?pikk=1): pärast skripti käib kõne vaikselt taustal, kuni esitlus läheb edasi.
+    // Seisund ei halvene (kokkuvajumise videot ei tule) ja päästekorraldaja ei ütle lõpulauset; kõne lõpeb vaikselt ajapiiriga.
+    const quiet = typeof window !== 'undefined' && !new URLSearchParams(window.location.search).has('pikk');
     for (const a of actions) {
+      if (quiet && a.type !== 'finish') continue;
       if (a.type === 'transition') {
         const from = stateRef.current.id;
         stateRef.current = { id: a.to, enteredAtMs: nowMs };
