@@ -40,75 +40,51 @@
     },
     {
       "speaker": "dispatcher",
-      "startMs": 8600,
-      "endMs": 9700,
-      "text": "Kui vana ta on ja kas ta on teadvusel?"
-    },
-    {
-      "speaker": "caller",
-      "startMs": 9900,
-      "endMs": 11800,
-      "text": "Ta on 78, teadvusel, istub laua taga, aga jutt on täiesti segane."
-    },
-    {
-      "speaker": "dispatcher",
-      "startMs": 12200,
-      "endMs": 12800,
-      "text": "Kas ta hingab normaalselt?"
-    },
-    {
-      "speaker": "caller",
-      "startMs": 13000,
-      "endMs": 13400,
-      "text": "Jah, hingab."
-    },
-    {
-      "speaker": "dispatcher",
-      "startMs": 13900,
-      "endMs": 14500,
-      "text": "Millal see algas?"
-    },
-    {
-      "speaker": "caller",
-      "startMs": 14700,
-      "endMs": 15500,
-      "text": "Umbes viis minutit tagasi."
-    },
-    {
-      "speaker": "dispatcher",
-      "startMs": 16200,
-      "endMs": 19300,
+      "startMs": 8700,
+      "endMs": 11200,
       "text": "Kiirabi on teie poole teel. Jääge tema juurde ja tehke välisuks lahti. Öelge mulle kohe, kui midagi muutub."
     },
     {
       "speaker": "caller",
-      "startMs": 19000,
-      "endMs": 21500,
+      "startMs": 11500,
+      "endMs": 14000,
       "text": "Oodake, nüüd ta suunurk vajus viltu ja ta ei saa paremat kätt tõsta!"
     },
     {
       "speaker": "dispatcher",
-      "startMs": 22000,
-      "endMs": 24500,
+      "startMs": 14400,
+      "endMs": 16600,
       "text": "Selge, annan selle kiirabile edasi. Kas ta on endiselt teadvusel?"
     },
     {
       "speaker": "caller",
-      "startMs": 24800,
-      "endMs": 25200,
-      "text": "Jah, on."
+      "startMs": 16900,
+      "endMs": 18800,
+      "text": "Ta on 78, teadvusel, istub laua taga, aga jutt on täiesti segane."
     },
     {
       "speaker": "dispatcher",
-      "startMs": 28500,
-      "endMs": 30000,
+      "startMs": 19100,
+      "endMs": 19700,
+      "text": "Kas ta hingab normaalselt?"
+    },
+    {
+      "speaker": "caller",
+      "startMs": 19900,
+      "endMs": 20300,
+      "text": "Jah, hingab."
+    },
+    {
+      "speaker": "dispatcher",
+      "startMs": 22500,
+      "endMs": 24000,
       "text": "Kiirabi on kohal. Võite kõne lõpetada."
     }
   ],
   "toolCalls": [
     {
       "name": "dispatch_ambulance",
-      "atMs": 16000,
+      "atMs": 8500,
       "args": {
         "priority": "A",
         "address": "Männikäbi tee 14, Haabneeme",
@@ -117,7 +93,7 @@
     },
     {
       "name": "end_call",
-      "atMs": 30500
+      "atMs": 24500
     }
   ],
   "expect": {
@@ -131,7 +107,7 @@
       "incident.atMs": 1300,
       "location.level": "complete",
       "location.completeAtMs": 4800,
-      "changeReports[0].atMs": 19000
+      "changeReports[0].atMs": 11500
     }
   }
 }
