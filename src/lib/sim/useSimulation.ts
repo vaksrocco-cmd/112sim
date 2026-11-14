@@ -6,6 +6,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import goodCall from '@fixtures/transcripts/good_call.json';
 import { directorStep } from '../director/director';
+import { buildEndingText } from '../director/endings';
+import { computeOutcome } from '../director/outcome';
 import { emptyFacts, mergeFacts } from '../facts';
 import type {
   CallEndReason,
@@ -131,6 +133,13 @@ export function useSimulation(scenario: PublicScenario, opts: { onReport?: (id: 
       try {
         // Viimane kohtuniku läbijooks, et lõppfaktid oleksid täielikud.
         await runExtract();
+        // Tulemus ja lõputekst arvutatakse LÕPLIKEST faktidest (kohtunik võib kõne lõpus paar sekundit maas olla):
+        // muidu võib lõpuekraan öelda midagi muud kui raport.
+        const result = computeOutcome(factsRef.current, eventsRef.current, scenario, durationMs);
+        setOutcome(result.outcome);
+        setEndingText(buildEndingText(result));
+        const ending = scenario.states.find((s) => s.kind === 'ending');
+        if (result.outcome === 'good' && ending) setStateId(ending.id);
         setPhase('analyzing');
         const saved = await fetch('/api/sessions', {
           method: 'POST',
@@ -189,10 +198,6 @@ export function useSimulation(scenario: PublicScenario, opts: { onReport?: (id: 
           setPhase('wrapping_up');
         }
       } else if (a.type === 'finish') {
-        setOutcome(a.outcome);
-        setEndingText(a.endingText);
-        const ending = scenario.states.find((s) => s.kind === 'ending');
-        if (ending) setStateId(ending.id);
         const dispatcherEnded = eventsRef.current.some((e) => e.type === 'wrap_up_requested');
         void endCall(dispatcherEnded ? 'dispatcher_ended' : 'timeout');
         return;
