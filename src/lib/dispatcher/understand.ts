@@ -78,6 +78,10 @@ export function quickUnderstanding(state: CallState, callerText: string): Unders
     case 'breathing':
       if (/ei hinga/u.test(t)) return { ...base, breathing: 'no' };
       return yes || /^hingab( normaalselt)?$/u.test(t) ? { ...base, breathing: 'yes' } : no ? { ...base, breathing: 'no' } : null;
+    case 'age':
+    case 'onset':
+      // Demo: vanust ja algusaega ei salvestata, piisab vastusest. Lühike vastus ei vaja mudelit.
+      return base;
     case 'location:house': {
       const m = t.match(/^(?:maja |number |maja number )?(\d{1,4}[a-z]?)$/u);
       return m ? { ...base, house: m[1] } : null;

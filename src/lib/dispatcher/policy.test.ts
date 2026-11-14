@@ -24,15 +24,19 @@ describe('dispatcher policy', () => {
       { what: 'vanaema räägib segaselt' },
       { street: 'Männikäbi tee', house: '14', settlement: 'Haabneeme' },
       { confirmation: 'yes' },
+      {},
       { conscious: 'yes', breathing: 'yes' },
+      {},
     ]);
     expect(m[0].say).toBe('Mis aadressil see toimub?');
     expect(m[0].dispatch).toBeUndefined();
     expect(m[1].dispatch).toEqual({ address: 'Männikäbi tee 14, Haabneeme', summary: 'vanaema räägib segaselt' });
     expect(m[1].say).toBe('Abi on välja saadetud. Kordan: Männikäbi tee 14, Haabneeme. Kas sain õigesti aru?');
-    expect(m[2].say).toBe('Kas ta on teadvusel?');
+    expect(m[2].say).toBe('Kui vana ta on?');
     expect(m[2].dispatch).toBeUndefined(); // abi saadetakse välja ainult üks kord
-    expect(m[3].say).toBe('Öelge mulle kohe, kui midagi muutub.');
+    expect(m[3].say).toBe('Kas ta on teadvusel?');
+    expect(m[4].say).toBe('Millal see algas?');
+    expect(m[5].say).toBe('Öelge mulle kohe, kui midagi muutub.');
   });
 
   it('everything in the first sentence: dispatches at once', () => {
@@ -58,6 +62,27 @@ describe('dispatcher policy', () => {
     expect(new Set(said).size).toBe(said.length);
   });
 
+  it('demo script: fixed order what -> where -> read-back -> age -> conscious -> breathing -> onset, never stuck on vitals', () => {
+    const m = play([{ what: 'vanaema räägib segaselt' }, { street: 'Männikäbi tee', house: '14', settlement: 'Haabneeme' }, { confirmation: 'yes' }, {}, {}, {}, {}, {}, {}, {}]);
+    expect(m.map((x) => x.say)).toEqual([
+      'Mis aadressil see toimub?',
+      'Abi on välja saadetud. Kordan: Männikäbi tee 14, Haabneeme. Kas sain õigesti aru?',
+      'Kui vana ta on?',
+      'Kas ta on teadvusel?',
+      'Kas ta reageerib, kui te temaga räägite?',
+      'Kas ta hingab normaalselt?',
+      'Vaadake, kas ta rind liigub. Kas ta hingab?',
+      'Millal see algas?',
+      'Öelge mulle kohe, kui midagi muutub.',
+      'Jääge tema juurde, ärge jätke teda üksi.',
+    ]);
+  });
+
+  it('dispatches even if the incident was never described, once the address is known', () => {
+    const m = play([{ intent: 'unclear' }, { intent: 'unclear' }, { intent: 'unclear' }, { street: 'A tee', house: '1', settlement: 'B' }]);
+    expect(m[3].dispatch?.address).toBe('A tee 1, B');
+  });
+
   it('only "send an ambulance": asks about the event, does not assume the content', () => {
     const m = play([{ intent: 'only_help_request' }]);
     expect(m[0].say).toBe('Kirjeldage palun, mis praegu toimub.');
@@ -81,7 +106,7 @@ describe('dispatcher policy', () => {
   });
 
   it('change during the call: acknowledged, passed on, vitals re-checked; a vague change is clarified', () => {
-    const known: CallState = { ...emptyCallState(), what: 'x', street: 'A tee', house: '1', settlement: 'B', addressReadBack: true, addressConfirmed: true, conscious: 'yes', breathing: 'yes', dispatched: true };
+    const known: CallState = { ...emptyCallState(), what: 'x', street: 'A tee', house: '1', settlement: 'B', addressReadBack: true, addressConfirmed: true, conscious: 'yes', breathing: 'yes', dispatched: true, asked: { age: 1, onset: 1 } };
     const described = nextMove(known, u({ change: 'described' }), { whitelist });
     expect(described.say).toBe('Selge, annan selle kiirabile edasi. Kas ta on teadvusel?');
     const vague = nextMove(known, u({ change: 'vague' }), { whitelist });
@@ -91,12 +116,12 @@ describe('dispatcher policy', () => {
   it('never promises an arrival time', () => {
     const before = nextMove(emptyCallState(), u({ intent: 'asks_eta' }), { whitelist });
     expect(before.say).toBe('Saadan abi kohe, kui tean, kus te olete. Mis juhtus?');
-    const known: CallState = { ...emptyCallState(), what: 'x', street: 'A tee', house: '1', settlement: 'B', addressReadBack: true, addressConfirmed: true, conscious: 'yes', breathing: 'yes', dispatched: true };
+    const known: CallState = { ...emptyCallState(), what: 'x', street: 'A tee', house: '1', settlement: 'B', addressReadBack: true, addressConfirmed: true, conscious: 'yes', breathing: 'yes', dispatched: true, asked: { age: 1, onset: 1 } };
     expect(nextMove(known, u({ intent: 'asks_eta' }), { whitelist }).say).toMatch(/^Abi on teel\. Täpset aega ma öelda ei saa\./);
   });
 
   it('gives only whitelisted instructions, one per turn, and ends with a clear signal on the cue', () => {
-    const known: CallState = { ...emptyCallState(), what: 'x', street: 'A tee', house: '1', settlement: 'B', addressReadBack: true, addressConfirmed: true, conscious: 'yes', breathing: 'yes', dispatched: true };
+    const known: CallState = { ...emptyCallState(), what: 'x', street: 'A tee', house: '1', settlement: 'B', addressReadBack: true, addressConfirmed: true, conscious: 'yes', breathing: 'yes', dispatched: true, asked: { age: 1, onset: 1 } };
     const m = play([{}, {}, {}, {}], known);
     const allowed = new Set(fixedLines(whitelist));
     for (const x of m) expect(allowed.has(x.say)).toBe(true);
