@@ -2,11 +2,11 @@
 // Näitab reaalajas, mida kohtunik (LLM) on kõnest aru saanud. KNOWLEDGE.md 9.5. Tõde siin ei ole.
 import type { ReactNode } from 'react';
 import type { CallEvent, CallFacts, CallMs, PublicScenario, TriState } from '@/lib/types';
-import { Badge, Panel, Stack, Text } from '@/components/ui';
+import { Expand, Panel, Swap } from '@/components/ui';
 import { formatMs } from './format';
 
 function tri(v: TriState) {
-  return v === 'yes' ? <Badge tone="ok">jah</Badge> : v === 'no' ? <Badge tone="danger">ei</Badge> : <Badge>teadmata</Badge>;
+  return v === 'yes' ? <Badge tone="ok">jah</Badge> : v === 'no' ? <Badge tone="danger">ei</Badge> : <Badge tone="outline">teadmata</Badge>;
 }
 
 export function AiBrainPanel({
@@ -36,52 +36,58 @@ export function AiBrainPanel({
 
   return (
     <Panel title="AI aju: mida süsteem on aru saanud">
-      <Stack gap={3}>
+      <div className="-my-3 divide-y divide-border">
         <Row label="Mis juhtus" detail={facts.incident.quote ? `„${facts.incident.quote}“` : undefined}>
           {facts.incident.said ? (
             <Badge tone="ok">öeldud {facts.incident.atMs != null ? formatMs(facts.incident.atMs) : ''}</Badge>
           ) : (
-            <Badge>ootab</Badge>
+            <Badge tone="outline">ootab</Badge>
           )}
         </Row>
         <Row label="Asukoht" detail={loc.level === 'none' ? undefined : [address, loc.level === 'partial' && missing ? `puudub: ${missing}` : ''].filter(Boolean).join(' · ')}>
-          <Badge tone={loc.level === 'complete' ? 'ok' : loc.level === 'partial' ? 'warn' : 'neutral'}>
+          <Badge tone={loc.level === 'complete' ? 'ok' : loc.level === 'partial' ? 'warn' : 'outline'}>
             {loc.level === 'complete' ? `täielik ${loc.completeAtMs != null ? formatMs(loc.completeAtMs) : ''}` : loc.level === 'partial' ? 'poolik' : 'ootab'}
           </Badge>
         </Row>
         <Row label="Teadvusel">{tri(facts.patient.conscious)}</Row>
         <Row label="Hingab">{tri(facts.patient.breathing)}</Row>
         <Row label="Sümptomid" detail={facts.symptomsReported.map((s) => label(s.symptom)).join(' · ') || undefined}>
-          <Badge tone={facts.symptomsReported.length ? 'ok' : 'neutral'}>{facts.symptomsReported.length}</Badge>
+          <Badge tone={facts.symptomsReported.length ? 'ok' : 'outline'}>{facts.symptomsReported.length}</Badge>
         </Row>
         <Row
           label="Seisundi muutus"
           detail={reported?.quote ? `„${reported.quote}“` : waiting && change ? `muutus ${formatMs(change.atMs)}, ootab teadet ${formatMs(Math.max(0, callMs - change.atMs))}` : undefined}
         >
-          {reported ? <Badge tone="ok">teatatud {formatMs(reported.atMs)}</Badge> : waiting ? <Badge tone="warn">teatamata</Badge> : <Badge>muutust pole</Badge>}
+          {reported ? <Badge tone="ok">teatatud {formatMs(reported.atMs)}</Badge> : waiting ? <Badge tone="warn">teatamata</Badge> : <Badge tone="outline">muutust pole</Badge>}
         </Row>
         <Row label="Abi" detail={dispatch?.type === 'ambulance_dispatched' ? `„${dispatch.address}“` : undefined}>
-          {dispatch ? <Badge tone="ok">välja saadetud {formatMs(dispatch.atMs)}</Badge> : <Badge>ootab</Badge>}
+          {dispatch ? <Badge tone="ok">välja saadetud {formatMs(dispatch.atMs)}</Badge> : <Badge tone="outline">ootab</Badge>}
         </Row>
-      </Stack>
+      </div>
     </Panel>
   );
 }
 
 function Row({ label, detail, children }: { label: string; detail?: string; children: ReactNode }) {
   return (
-    <div>
-      <Stack direction="row" align="between">
-        <Text size="sm" tone="muted">
-          {label}
-        </Text>
+    <div className="py-3">
+      <div className="relative flex items-center justify-between gap-3">
+        <span className="text-[15px] leading-5 text-fg">{label}</span>
         {children}
-      </Stack>
-      {detail ? (
-        <Text size="sm" className="mt-1 text-subtle">
-          {detail}
-        </Text>
-      ) : null}
+      </div>
+      <Expand show={Boolean(detail)}>
+        <p className="break-words pt-1 text-[13px] leading-5 text-muted">{detail}</p>
+      </Expand>
     </div>
+  );
+}
+
+/** Rea olek tekstina: värv tähendab infot (öeldud / poolik / puudu), mitte kaunistust. Oleku muutudes vahetub tekst sujuvalt. */
+function Badge({ tone = 'neutral', children }: { tone?: 'neutral' | 'outline' | 'ok' | 'warn' | 'danger'; children: ReactNode }) {
+  const color = tone === 'ok' ? 'text-ok' : tone === 'warn' ? 'text-warn' : tone === 'danger' ? 'text-danger' : 'text-subtle';
+  return (
+    <Swap id={tone} className={`flex-none text-[15px] font-medium leading-5 ${color}`}>
+      {children}
+    </Swap>
   );
 }

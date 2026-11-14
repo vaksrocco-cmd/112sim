@@ -18,11 +18,11 @@ export function DialButton({ onCall, disabled, busy }: { onCall: () => void; dis
         onClick={onCall}
         disabled={disabled}
         aria-label="Helista 112 (simulatsioon)"
-        className={cx('gr-motion flex size-[72px] items-center justify-center rounded-full bg-call text-white hover:opacity-[0.88] disabled:pointer-events-none disabled:opacity-45', busy && 'gr-pulse')}
+        className={cx('gr-press flex size-[72px] items-center justify-center rounded-full bg-call text-white hover:opacity-[0.88] disabled:pointer-events-none disabled:opacity-45', busy && 'gr-pulse')}
       >
         <Phone />
       </button>
-      <span className="text-sm font-medium text-fg">{busy ? 'Ühendan…' : 'Helista 112'}</span>
+      <span className="type-label text-fg">{busy ? 'Ühendan…' : 'Helista 112'}</span>
     </div>
   );
 }
@@ -33,7 +33,7 @@ export function HangUpButton({ onHangUp }: { onHangUp: () => void }) {
       type="button"
       onClick={onHangUp}
       aria-label="Lõpeta kõne"
-      className="gr-motion flex size-[72px] flex-none items-center justify-center rounded-full bg-end text-white hover:opacity-[0.88]"
+      className="gr-press flex size-[72px] flex-none items-center justify-center rounded-full bg-end text-white hover:opacity-[0.88]"
     >
       <Phone down />
     </button>
@@ -43,9 +43,9 @@ export function HangUpButton({ onHangUp }: { onHangUp: () => void }) {
 /** Väike ümmargune kõnenupp koos sildiga (nagu „klaviatuur“ või „kõlar“ telefonis). */
 export function RoundButton({ label, active, onClick, children }: { label: string; active?: boolean; onClick: () => void; children: ReactNode }) {
   return (
-    <button type="button" onClick={onClick} aria-pressed={active} className="flex w-16 flex-none flex-col items-center gap-1.5">
-      <span className={cx('gr-motion flex size-14 items-center justify-center rounded-full', active ? 'bg-fg text-bg' : 'bg-surface-2 text-fg')}>{children}</span>
-      <span className="text-[11px] leading-none text-muted">{label}</span>
+    <button type="button" onClick={onClick} aria-pressed={active} className="flex w-24 flex-none flex-col items-center gap-2">
+      <span className={cx('gr-press flex size-14 items-center justify-center rounded-full', active ? 'bg-fg text-bg' : 'bg-surface-2 text-fg')}>{children}</span>
+      <span className="type-label text-muted">{label}</span>
     </button>
   );
 }
