@@ -37,15 +37,16 @@ describe('directorStep', () => {
     expect(step(4000, 'S1', 0, emptyFacts(), [started])[0]).toMatchObject({ type: 'transition', to: 'S2' });
   });
 
-  it('moves S2 to S3 when the change is not reported within the window', () => {
+  it('moves S2 to S3 (collapse) at two minutes', () => {
     const facts = { ...goodFacts(), changeReports: [] };
-    expect(step(23999, 'S2', 4000, facts, [started, dispatched, toS2])).toEqual([]);
-    expect(step(24000, 'S2', 4000, facts, [started, dispatched, toS2])[0]).toMatchObject({ type: 'transition', to: 'S3' });
+    expect(step(119999, 'S2', 4000, facts, [started, dispatched, toS2])).toEqual([]);
+    expect(step(120000, 'S2', 4000, facts, [started, dispatched, toS2])[0]).toMatchObject({ type: 'transition', to: 'S3' });
   });
 
   it('asks the dispatcher to wrap up once help has arrived and the change is reported', () => {
-    expect(step(18000, 'S2', 4000, goodFacts(), [started, dispatched, toS2])).toEqual([]);
-    expect(step(19000, 'S2', 4000, goodFacts(), [started, dispatched, toS2])[0]).toMatchObject({ type: 'wrap_up' });
+    const facts = { ...goodFacts(), changeReports: [...goodFacts().changeReports, { stateId: 'S3', atMs: 125000, quote: 'ta vajus kokku' }] };
+    expect(step(148999, 'S3', 120000, facts, [started, dispatched, toS2])).toEqual([]);
+    expect(step(149000, 'S3', 120000, facts, [started, dispatched, toS2])[0]).toMatchObject({ type: 'wrap_up' });
   });
 
   it('finishes with a good outcome after a good call and returns nothing in an ending state', () => {

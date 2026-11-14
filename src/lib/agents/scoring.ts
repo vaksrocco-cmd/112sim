@@ -13,20 +13,23 @@ export const RUBRIC: { id: RubricItemResult['id']; label: string; maxPoints: num
 
 const sec = (ms: number) => `${Math.round(ms / 1000)} s`;
 
-/** Esimese teatamist nõudva seisundi külastus ja reaktsiooniaeg (ms) või null, kui ei teatatud. */
+/**
+ * Muutus, mida hinnatakse: viimane teatamist nõudev seisund, mis tekkis kõne AJAL (nt kokkuvajumine 2. minutil).
+ * Kui kõne lõppes enne ühtegi muutust, siis algseisund. Tagastab reaktsiooniaja (ms) või null, kui ei teatatud.
+ */
 export function firstChange(session: CallSession, scenario: PublicScenario) {
-  for (const v of session.stateHistory) {
-    const state = scenario.states.find((s) => s.id === v.stateId);
-    if (!state?.requiresReport) continue;
-    const report = session.finalFacts.changeReports.find((r) => r.stateId === v.stateId);
-    return {
-      visit: v,
-      windowMs: state.reportWindowMs ?? 0,
-      report,
-      reactionMs: report ? Math.max(0, report.atMs - v.enteredAtMs) : null,
-    };
-  }
-  return null;
+  const visits = session.stateHistory.filter((v) => scenario.states.find((s) => s.id === v.stateId)?.requiresReport);
+  const during = visits.filter((v) => v.enteredAtMs > 0);
+  const v = during[during.length - 1] ?? visits[0];
+  if (!v) return null;
+  const state = scenario.states.find((s) => s.id === v.stateId)!;
+  const report = session.finalFacts.changeReports.find((r) => r.stateId === v.stateId);
+  return {
+    visit: v,
+    windowMs: state.reportWindowMs ?? 0,
+    report,
+    reactionMs: report ? Math.max(0, report.atMs - v.enteredAtMs) : null,
+  };
 }
 
 export function computeTimes(session: CallSession, scenario: PublicScenario): AnalysisReport['times'] {
