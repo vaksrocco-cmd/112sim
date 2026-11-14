@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { emptyCallState, fixedLines, nextMove, NO_UNDERSTANDING, type CallState, type Move, type Understanding } from './policy';
 import { fallbackUnderstanding, quickUnderstanding } from './understand';
 
-const whitelist = ['Jääge tema juurde, ärge jätke teda üksi.', 'Tehke välisuks lahti, et kiirabi saaks sisse.', 'Öelge mulle kohe, kui midagi muutub.'];
+const whitelist = [
+  'Jääge tema juurde, ärge jätke teda üksi.',
+  'Tehke välisuks lahti, et kiirabi saaks sisse.',
+  'Öelge mulle kohe, kui midagi muutub.',
+  'Pange ta ettevaatlikult külili lamama.',
+  'Jälgige tema hingamist ja öelge kohe, kui see muutub.',
+];
 const u = (p: Partial<Understanding>): Understanding => ({ ...NO_UNDERSTANDING, intent: 'info', ...p });
 
 /** Mängib kõne läbi: iga samm on see, mida mudel helistaja lausest aru sai. */
@@ -32,11 +38,11 @@ describe('dispatcher policy', () => {
     expect(m[0].dispatch).toBeUndefined();
     expect(m[1].dispatch).toEqual({ address: 'Männikäbi tee 14, Haabneeme', summary: 'vanaema räägib segaselt' });
     expect(m[1].say).toBe('Abi on välja saadetud. Kordan: Männikäbi tee 14, Haabneeme. Kas sain õigesti aru?');
-    expect(m[2].say).toBe('Kui vana ta on?');
+    expect(m[2].say).toBe('Aitäh. Kui vana ta on?');
     expect(m[2].dispatch).toBeUndefined(); // abi saadetakse välja ainult üks kord
     expect(m[3].say).toBe('Kas ta on teadvusel?');
     expect(m[4].say).toBe('Millal see algas?');
-    expect(m[5].say).toBe('Öelge mulle kohe, kui midagi muutub.');
+    expect(m[5].say).toBe('Kas ta saab mõlemat kätt tõsta?');
   });
 
   it('everything in the first sentence: dispatches at once', () => {
@@ -67,14 +73,14 @@ describe('dispatcher policy', () => {
     expect(m.map((x) => x.say)).toEqual([
       'Mis aadressil see toimub?',
       'Abi on välja saadetud. Kordan: Männikäbi tee 14, Haabneeme. Kas sain õigesti aru?',
-      'Kui vana ta on?',
+      'Aitäh. Kui vana ta on?',
       'Kas ta on teadvusel?',
-      'Kas ta reageerib, kui te temaga räägite?',
+      'Küsin seda, et kiirabi teaks, milleks valmistuda. Kas ta reageerib, kui te temaga räägite?',
       'Kas ta hingab normaalselt?',
       'Vaadake, kas ta rind liigub. Kas ta hingab?',
       'Millal see algas?',
+      'Kas ta saab mõlemat kätt tõsta?',
       'Öelge mulle kohe, kui midagi muutub.',
-      'Jääge tema juurde, ärge jätke teda üksi.',
     ]);
   });
 
@@ -106,9 +112,9 @@ describe('dispatcher policy', () => {
   });
 
   it('change during the call: acknowledged, passed on, vitals re-checked; a vague change is clarified', () => {
-    const known: CallState = { ...emptyCallState(), what: 'x', street: 'A tee', house: '1', settlement: 'B', addressReadBack: true, addressConfirmed: true, conscious: 'yes', breathing: 'yes', dispatched: true, asked: { age: 1, onset: 1 } };
+    const known: CallState = { ...emptyCallState(), what: 'x', street: 'A tee', house: '1', settlement: 'B', addressReadBack: true, addressConfirmed: true, conscious: 'yes', breathing: 'yes', dispatched: true, asked: { age: 1, onset: 1, arms: 1 } };
     const described = nextMove(known, u({ change: 'described' }), { whitelist });
-    expect(described.say).toBe('Selge, annan selle kiirabile edasi. Kas ta on teadvusel?');
+    expect(described.say).toBe('Annan selle kohe kiirabile edasi. Kas ta on teadvusel?');
     const vague = nextMove(known, u({ change: 'vague' }), { whitelist });
     expect(vague.say).toBe('Mis nüüd muutus?');
   });
@@ -116,19 +122,82 @@ describe('dispatcher policy', () => {
   it('never promises an arrival time', () => {
     const before = nextMove(emptyCallState(), u({ intent: 'asks_eta' }), { whitelist });
     expect(before.say).toBe('Saadan abi kohe, kui tean, kus te olete. Mis juhtus?');
-    const known: CallState = { ...emptyCallState(), what: 'x', street: 'A tee', house: '1', settlement: 'B', addressReadBack: true, addressConfirmed: true, conscious: 'yes', breathing: 'yes', dispatched: true, asked: { age: 1, onset: 1 } };
+    const known: CallState = { ...emptyCallState(), what: 'x', street: 'A tee', house: '1', settlement: 'B', addressReadBack: true, addressConfirmed: true, conscious: 'yes', breathing: 'yes', dispatched: true, asked: { age: 1, onset: 1, arms: 1 } };
     expect(nextMove(known, u({ intent: 'asks_eta' }), { whitelist }).say).toMatch(/^Abi on teel\. Täpset aega ma öelda ei saa\./);
   });
 
   it('gives only whitelisted instructions, one per turn, and ends with a clear signal on the cue', () => {
-    const known: CallState = { ...emptyCallState(), what: 'x', street: 'A tee', house: '1', settlement: 'B', addressReadBack: true, addressConfirmed: true, conscious: 'yes', breathing: 'yes', dispatched: true, asked: { age: 1, onset: 1 } };
+    const known: CallState = { ...emptyCallState(), what: 'x', street: 'A tee', house: '1', settlement: 'B', addressReadBack: true, addressConfirmed: true, conscious: 'yes', breathing: 'yes', dispatched: true, asked: { age: 1, onset: 1, arms: 1 } };
     const m = play([{}, {}, {}, {}], known);
     const allowed = new Set(fixedLines(whitelist));
-    for (const x of m) expect(allowed.has(x.say)).toBe(true);
+    // Iga voor koosneb ainult kindlatest lausetest (juhis lubatud loendist, kontrollküsimus või kinnitus).
+    const sentences = (say: string) => say.match(/[^.?!]+[.?!]+/g)?.map((x) => x.trim()) ?? [];
+    for (const x of m) for (const part of sentences(x.say)) expect(allowed.has(part)).toBe(true);
     expect(m[0].say).toBe('Öelge mulle kohe, kui midagi muutub.');
     expect(new Set(m.slice(0, 3).map((x) => x.say)).size).toBe(3);
+    // Juhist, mida stsenaarium ei luba, ei anta kunagi.
+    const long = play(Array.from({ length: 30 }, () => ({})), known).map((x) => x.say).join(' ');
+    expect(long).not.toMatch(/pingul riided|ravimid ja isikut|nõrka kätt/);
     const end = nextMove(known, NO_UNDERSTANDING, { whitelist, cue: true });
-    expect(end).toMatchObject({ say: 'Kiirabi on kohal. Võime kõne lõpetada.', endCall: true });
+    expect(end).toMatchObject({ say: 'Kiirabi on kohal. Aitäh, et jäite liinile. Võime kõne lõpetada.', endCall: true });
+  });
+
+  it('keeps talking for a long call: reassures, checks back, never says the same turn twice in a row', () => {
+    const known: CallState = { ...emptyCallState(), what: 'x', street: 'A tee', house: '1', settlement: 'B', addressReadBack: true, addressConfirmed: true, conscious: 'yes', breathing: 'yes', dispatched: true, asked: { age: 1, onset: 1, arms: 1 } };
+    const m: Move[] = [];
+    let state = known;
+    for (let i = 0; i < 40; i++) {
+      const move = nextMove(state, i % 2 ? u({}) : NO_UNDERSTANDING, { whitelist, idle: i % 2 === 0 });
+      m.push(move);
+      state = move.state;
+    }
+    m.forEach((x, i) => {
+      expect(x.say).not.toBe('');
+      if (i > 0) expect(x.say).not.toBe(m[i - 1].say);
+      expect(questions(x.say)).toBeLessThanOrEqual(1);
+    });
+    const all = m.map((x) => x.say).join(' ');
+    expect(all).toMatch(/Te saate hästi hakkama\./);
+    expect(all).toMatch(/Abi on teel\./);
+    expect(all).toMatch(/Kas saite ukse lahti\?/);
+  });
+
+  it('collapse: passes it on, asks about breathing, gives the side position and keeps watching', () => {
+    const known: CallState = { ...emptyCallState(), what: 'x', street: 'A tee', house: '1', settlement: 'B', addressReadBack: true, addressConfirmed: true, conscious: 'yes', breathing: 'yes', dispatched: true, asked: { age: 1, onset: 1, arms: 1 } };
+    const m = play([{ change: 'described', conscious: 'no' }, { breathing: 'yes' }, {}, {}], known);
+    expect(m[0]).toMatchObject({ say: 'Annan selle kohe kiirabile edasi. Kas ta hingab?', emotion: 'kindel' });
+    expect(m[1].say).toBe('Pange ta ettevaatlikult külili lamama.');
+    expect(m[2].say).toBe('Jälgige tema hingamist ja öelge kohe, kui see muutub.');
+    expect(m[3].say).not.toMatch(/teadvusel|nõrka kätt/);
+    // „Kas ta on endiselt teadvusel?“ – „Ei“ käivitab sama käigu ilma mudelita.
+    const quick = quickUnderstanding({ ...known, lastTopic: 'recheck:conscious' }, 'Ei, ei ole.');
+    expect(quick).toMatchObject({ conscious: 'no', change: 'described' });
+  });
+
+  it('reacts to the caller: panic, "what do I do", good news on a check', () => {
+    const known: CallState = { ...emptyCallState(), what: 'x', street: 'A tee', house: '1', settlement: 'B', addressReadBack: true, addressConfirmed: true, conscious: 'yes', breathing: 'yes', dispatched: true, asked: { age: 1, onset: 1, arms: 1 } };
+    const panic = play([{ intent: 'agitated' }, { intent: 'agitated' }], known);
+    expect(panic[0].say).toMatch(/^Ma aitan teid\. /);
+    expect(panic[1].say).toMatch(/^Ma saan aru, et see on hirmutav\. Olen teiega\. /);
+    // Kontrollküsimuse asemel juhis, kui helistaja küsib, mida teha.
+    const atCheck: CallState = { ...known, asked: { ...known.asked, 'g:tell': 1, 'g:stay': 1 } };
+    expect(nextMove(atCheck, u({ intent: 'asks_what_to_do' }), { whitelist }).say).toBe('Tehke välisuks lahti, et kiirabi saaks sisse.');
+    expect(nextMove(emptyCallState(), u({ intent: 'asks_what_to_do', what: 'x' }), { whitelist }).say).toBe('Ütlen kohe, mida teha. Enne on mul vaja teada, kuhu abi saata. Mis aadressil see toimub?');
+    const good = nextMove({ ...known, lastTopic: 'recheck:conscious' }, u({ conscious: 'yes' }), { whitelist });
+    expect(good.say).toMatch(/^Hästi\. /);
+  });
+
+  it('silence while gathering: checks the line once, then asks again in other words', () => {
+    const m: Move[] = [];
+    let state = emptyCallState();
+    for (let i = 0; i < 3; i++) {
+      const move = nextMove(state, NO_UNDERSTANDING, { whitelist, idle: true });
+      m.push(move);
+      state = move.state;
+    }
+    expect(m[0].say).toBe('Kas te kuulete mind? Mis juhtus?');
+    expect(m[1].say).toBe('Kirjeldage palun, mis praegu toimub.');
+    expect(m[2].say).toMatch(/^Kas te kuulete mind\? /);
   });
 
   it('asks at most one question per turn and never repeats the previous line', () => {
@@ -158,6 +227,10 @@ describe('dispatcher policy', () => {
     // Pikem või muutust sisaldav lause jääb mudelile.
     expect(quickUnderstanding(at('conscious'), 'Jah, aga nüüd vajus ta kokku')).toBeNull();
     expect(quickUnderstanding(at('what'), 'Jah')).toBeNull();
+    // Juhendamise ajal piisab vastusest; seisundi halvenemine läheb ikka mudelile.
+    expect(quickUnderstanding(at('check'), 'Jah, sain ukse lahti ja tulin tagasi.')).not.toBeNull();
+    expect(quickUnderstanding(at('howis'), 'Ta ei vasta mulle enam')).toBeNull();
+    expect(quickUnderstanding(at('guide'), 'Mida ma veel tegema peaksin?')).toBeNull();
   });
 
   it('fallback understanding keeps the call moving without the model', () => {

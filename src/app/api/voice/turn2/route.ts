@@ -1,5 +1,5 @@
 // HÄÄL. Päästekorraldaja üks voor, versioon 2: mudel mõistab helistaja lauset, KOOD otsustab vastuse (lib/dispatcher/policy.ts).
-// Päring:  POST { scenarioId, state?, lastDispatcherLine?, callerText?, cue? }
+// Päring:  POST { scenarioId, state?, lastDispatcherLine?, callerText?, cue?, idle? }
 // Vastus:  NDJSON: {"type":"tool",...} | {"type":"text","delta":"[rahulik] ..."} | {"type":"state","state":{...}} | {"type":"done"}
 // Päästekorraldaja EI tea tõde: kasutame ainult avalikku stsenaariumi ja selle lubatud juhiste loendit.
 import { z } from 'zod';
@@ -16,6 +16,8 @@ const Body = z.object({
   callerText: z.string().max(1200).optional(),
   /** Süsteemi märguanne (kiirabi jõudis kohale): kõne lõpetatakse. */
   cue: z.boolean().optional(),
+  /** Helistaja vaikib: päästekorraldaja võtab ise jutujärje. */
+  idle: z.boolean().optional(),
 });
 
 export async function POST(req: Request) {
@@ -25,9 +27,9 @@ export async function POST(req: Request) {
   if (!scenario) return new Response('unknown_scenario', { status: 400 });
 
   const state: CallState = { ...emptyCallState(), ...(parsed.data.state as Partial<CallState> | undefined) };
-  const { cue, callerText, lastDispatcherLine } = parsed.data;
-  const u = cue || !callerText?.trim() ? NO_UNDERSTANDING : await understand({ state, lastDispatcherLine: lastDispatcherLine ?? '', callerText });
-  const move = nextMove(state, u, { whitelist: scenario.dispatcherWhitelist, cue });
+  const { cue, idle, callerText, lastDispatcherLine } = parsed.data;
+  const u = cue || idle || !callerText?.trim() ? NO_UNDERSTANDING : await understand({ state, lastDispatcherLine: lastDispatcherLine ?? '', callerText });
+  const move = nextMove(state, u, { whitelist: scenario.dispatcherWhitelist, cue, idle });
 
   const lines: unknown[] = [];
   if (move.dispatch) lines.push({ type: 'tool', name: 'dispatch_ambulance', input: { priority: 'A', address: move.dispatch.address, summary: move.dispatch.summary } });
