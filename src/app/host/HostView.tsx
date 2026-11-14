@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatMs } from '@/components/sim/format';
 import { Highlighted } from '@/components/sim/Highlighted';
 import { CountUp } from '@/components/report/CountUp';
+import { FeedbackSteps, Tips } from '@/components/report/FeedbackSteps';
 import { Logo } from '@/components/ui';
 import { cx } from '@/components/ui/cx';
 import { joinRoom, newRoomCode, roomsConfigured, type RoomState } from '@/lib/room/realtime';
@@ -113,7 +114,7 @@ export function HostView({ scenario }: { scenario: PublicScenario }) {
               <span className="text-[0.22em] font-medium tracking-normal text-subtle">/100</span>
             </p>
             <p className={cx('type-title text-[clamp(22px,2.4vw,40px)]', outcomeText[report.outcome])}>{outcomeLabel[report.outcome]}</p>
-            <p className="text-[clamp(16px,1.5vw,24px)] leading-snug text-muted">{report.whatWouldHaveHappened}</p>
+            <p className="text-[clamp(16px,1.5vw,24px)] leading-snug text-muted">{report.summary ?? report.whatWouldHaveHappened}</p>
             <button
               type="button"
               onClick={() => window.location.reload()}
@@ -122,25 +123,26 @@ export function HostView({ scenario }: { scenario: PublicScenario }) {
               Uus kõne
             </button>
           </div>
-          <div className="gr-stagger flex min-h-0 flex-col justify-center gap-3 overflow-y-auto">
-            {report.rubric.map((r) => (
-              <div key={r.id} className="flex items-baseline gap-5 border-b border-border pb-3">
-                <span className="type-title w-24 flex-none text-[clamp(20px,2vw,32px)]">
-                  {r.points}
-                  <span className="text-subtle">/{r.maxPoints}</span>
-                </span>
-                <div className="min-w-0">
-                  <p className="text-[clamp(17px,1.5vw,24px)] font-medium leading-snug">{r.label}</p>
-                  <p className="text-[clamp(14px,1.1vw,18px)] leading-snug text-muted">{r.evidence ? `„${r.evidence}“` : r.why}</p>
+          <div className="flex min-h-0 flex-col justify-center gap-[2.4vh] overflow-y-auto">
+            {report.steps?.length ? (
+              <FeedbackSteps steps={report.steps} big />
+            ) : (
+              report.rubric.map((r) => (
+                <div key={r.id} className="flex items-baseline gap-5 border-b border-border pb-3">
+                  <span className="w-24 flex-none text-[clamp(20px,2vw,32px)] font-semibold tabular-nums">
+                    {r.notApplicable ? '–' : r.points}
+                    <span className="text-subtle">/{r.maxPoints}</span>
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[clamp(17px,1.5vw,24px)] font-medium leading-snug">{r.label}</p>
+                    <p className="text-[clamp(14px,1.1vw,18px)] leading-snug text-muted">{r.evidence ? `„${r.evidence}“` : r.why}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
-            <div className="pt-2">
-              {report.tips.map((t) => (
-                <p key={t} className="text-[clamp(15px,1.3vw,22px)] leading-snug text-fg">
-                  → {t}
-                </p>
-              ))}
+              ))
+            )}
+            <div className="border-t border-border pt-[2vh]">
+              <p className="type-label pb-[1vh] text-subtle">Järgmine kord</p>
+              <Tips tips={report.tips} from={report.steps?.length ?? 0} big />
             </div>
           </div>
         </main>

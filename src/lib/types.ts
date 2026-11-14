@@ -118,15 +118,29 @@ export interface RubricItemResult {
   notApplicable?: boolean;
 }
 
+/** Tagasiside ideaalse kõne järjekorras: kus -> mis juhtus -> kellega -> seisund -> millal -> muutus. */
+export type FeedbackStepId = 'where' | 'what' | 'who' | 'condition' | 'when' | 'change';
+/** said = ütles ise; prompted = alles küsimise peale; partial = poolikult; missing = jäi ütlemata. Oleku määrab kood. */
+export type FeedbackStatus = 'said' | 'prompted' | 'partial' | 'missing';
+export interface FeedbackStep {
+  id: FeedbackStepId; label: string; status: FeedbackStatus;
+  atMs?: CallMs;
+  quote?: string;                               // helistaja sõnad; kood kontrollib, et need on transkriptis olemas
+  note: string;                                 // üks lause tagasisidet
+  example: string;                              // näidislause, kuidas seda öelda
+}
+
 export interface AnalysisReport {
   sessionId: string;
-  score: number;                                // 0–100, rubric.points summa
+  score: number;                                // 0–100; read, mida ei saanud hinnata (notApplicable), jäävad arvestusest välja
   outcome: Outcome;
   times: { incidentMs?: CallMs; locationMs?: CallMs; changeReactionMs?: number; durationMs: CallMs };
   rubric: RubricItemResult[];
   missed: string[];                             // kuni 4 lühikest lauset
   tips: [string, string, string];
   whatWouldHaveHappened: string;
+  summary?: string;                             // AI kokkuvõte kõnest, 1–2 lauset
+  steps?: FeedbackStep[];                       // puudub vanadel raportitel
 }
 
 // ───────── Sessioon ─────────

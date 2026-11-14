@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import goodCall from '@fixtures/transcripts/good_call.json';
 import { analyzeSession } from '../agents/analyze';
-import { scoreSession } from '../agents/scoring';
+import { buildSteps } from '../agents/feedback';
+import { scoreSession, totalScore } from '../agents/scoring';
 import { emptyFacts } from '../facts';
 import { getPublicScenario, getScenario } from '../scenarios';
 import type { CallEvent, CallFacts, CallSession, TranscriptFixture } from '../types';
@@ -91,6 +92,25 @@ describe('scoring', () => {
     const rubric = scoreSession(session(facts, [started, { type: 'call_ended', atMs: 20000, reason: 'caller_hangup' }]), scenario);
     expect(rubric.find((r) => r.id === 'location')?.points).toBe(8);
     expect(rubric.find((r) => r.id === 'ending')?.points).toBe(0);
+  });
+
+  it('gives a silent call 0 points and marks unrated rows instead of full marks', () => {
+    const silent: CallSession = {
+      ...session(emptyFacts(), [started, toS2, { type: 'call_ended', atMs: 40000, reason: 'timeout' }]),
+      durationMs: 40000,
+      transcript: [{ id: '0', speaker: 'dispatcher', text: 'Häirekeskus, tere. Mis juhtus?', startMs: 0, endMs: 2000 }],
+    };
+    const rubric = scoreSession(silent, scenario);
+    expect(rubric.find((r) => r.id === 'answers')?.points).toBe(0);
+    expect(rubric.find((r) => r.id === 'clarity')).toMatchObject({ points: 0, notApplicable: true });
+    expect(totalScore(rubric)).toBe(0);
+    expect(buildSteps(silent, scenario).map((s) => s.status)).toEqual(['missing', 'missing', 'missing', 'missing', 'missing', 'missing']);
+  });
+
+  it('orders feedback as where, what, who, condition, when, change', () => {
+    const steps = buildSteps(session(goodFacts(), [started, dispatched, toS2, ended]), scenario);
+    expect(steps.map((s) => s.id)).toEqual(['where', 'what', 'who', 'condition', 'when', 'change']);
+    expect(steps.find((s) => s.id === 'where')?.status).toBe('said');
   });
 
   it('still returns a full report when no LLM key is configured', async () => {

@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import type { AnalysisReport, CallSession, Outcome, RubricItemResult } from '@/lib/types';
 import { Page, Panel, Progress, Reveal, buttonClass, cx } from '@/components/ui';
 import { CountUp } from './CountUp';
+import { FeedbackSteps, Tips } from './FeedbackSteps';
 import { formatMs } from '@/components/sim/format';
 
 const outcomeLabel: Record<Outcome, string> = { good: 'Abi jõudis õigel ajal', delayed: 'Abi jõudis hilinemisega', bad: 'Abi ei jõudnud õigel ajal' };
@@ -58,7 +59,8 @@ export function ReportView({ session, report }: { session: CallSession; report: 
               </h1>
             </div>
             <Progress value={report.score / 100} tone={outcomeBar[report.outcome]} />
-            {report.whatWouldHaveHappened ? <p className="text-[17px] leading-[26px] text-muted">{report.whatWouldHaveHappened}</p> : null}
+            {report.summary ? <p className="text-[17px] leading-[26px] text-fg">{report.summary}</p> : null}
+            {report.whatWouldHaveHappened ? <p className="text-[15px] leading-[22px] text-muted">{report.whatWouldHaveHappened}</p> : null}
           </section>
 
           <section aria-label="Kolm põhiaega" className="grid grid-cols-3 divide-x divide-border rounded-card bg-surface py-5">
@@ -75,38 +77,25 @@ export function ReportView({ session, report }: { session: CallSession; report: 
         </div>
 
         <div className="flex flex-col gap-4">
-          <Panel title="Hindamine">
+          {report.steps?.length ? (
+            <Panel title="Sinu kõne õiges järjekorras">
+              <FeedbackSteps steps={report.steps} />
+            </Panel>
+          ) : null}
+
+          {report.tips.length ? (
+            <Panel title="Järgmine kord">
+              <Tips tips={report.tips} from={report.steps?.length ?? 0} />
+            </Panel>
+          ) : null}
+
+          <Panel title="Punktid">
             <ul className="-my-4 divide-y divide-border">
               {report.rubric.map((r, i) => (
                 <Rubric key={r.id} item={r} delay={Math.min(i, 4) * 0.06} />
               ))}
             </ul>
           </Panel>
-
-          {report.missed.length ? (
-            <Panel title="Mis jäi ütlemata">
-              <ul className="flex flex-col gap-2">
-                {report.missed.map((m) => (
-                  <li key={m} className="text-[15px] leading-[22px] text-fg">
-                    {m}
-                  </li>
-                ))}
-              </ul>
-            </Panel>
-          ) : null}
-
-          {report.tips.length ? (
-            <Panel title="Kolm soovitust">
-              <ol className="flex flex-col gap-2">
-                {report.tips.map((t, i) => (
-                  <li key={t} className="flex items-baseline gap-3 text-[15px] leading-[22px] text-fg">
-                    <span className="w-3 flex-none text-subtle">{i + 1}</span>
-                    {t}
-                  </li>
-                ))}
-              </ol>
-            </Panel>
-          ) : null}
 
           {rows.length ? (
             <details className="group rounded-card bg-surface p-5">
@@ -159,11 +148,17 @@ function Rubric({ item, delay }: { item: RubricItemResult; delay: number }) {
       <div className="flex items-baseline justify-between gap-3">
         <p className="text-[15px] font-bold leading-5 text-fg">{item.label}</p>
         <p className="flex-none text-[15px] font-bold leading-5 text-fg">
-          {item.points}
-          <span className="font-normal text-subtle">/{item.maxPoints}</span>
+          {item.notApplicable ? (
+            <span className="font-normal text-subtle">ei hinnatud</span>
+          ) : (
+            <>
+              {item.points}
+              <span className="font-normal text-subtle">/{item.maxPoints}</span>
+            </>
+          )}
         </p>
       </div>
-      <Progress value={item.maxPoints ? item.points / item.maxPoints : 0} tone={full ? 'ok' : item.points === 0 ? 'accent' : 'warn'} track="strong" />
+      {item.notApplicable ? null : <Progress value={item.maxPoints ? item.points / item.maxPoints : 0} tone={full ? 'ok' : item.points === 0 ? 'accent' : 'warn'} track="strong" />}
       <p className="text-[13px] leading-5 text-muted">{item.why}</p>
       {item.evidence ? <blockquote className="border-l border-border-strong pl-3 text-[15px] leading-[22px] text-fg">„{item.evidence}“</blockquote> : null}
       </Reveal>
