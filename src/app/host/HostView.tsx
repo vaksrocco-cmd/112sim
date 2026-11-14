@@ -4,11 +4,13 @@
 import QRCode from 'qrcode';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatMs } from '@/components/sim/format';
+import { CountUp } from '@/components/report/CountUp';
 import { Logo } from '@/components/ui';
 import { cx } from '@/components/ui/cx';
 import { joinRoom, newRoomCode, roomsConfigured, type RoomState } from '@/lib/room/realtime';
 import type { CallSession, PublicScenario } from '@/lib/types';
 
+const outcomeText = { good: 'text-ok', delayed: 'text-warn', bad: 'text-danger' } as const;
 const outcomeLabel = { good: 'Abi jõudis õigel ajal', delayed: 'Abi jõudis hilinemisega', bad: 'Abi ei jõudnud õigel ajal' } as const;
 
 export function HostView({ scenario }: { scenario: PublicScenario }) {
@@ -88,7 +90,8 @@ export function HostView({ scenario }: { scenario: PublicScenario }) {
     prevStateId.current = liveStateId;
     if (prev && prev !== liveStateId && scenario.states.find((s) => s.id === liveStateId)?.onsetClipUrl) setOnsetFor(liveStateId);
   }, [liveStateId, scenario.states]);
-  const onsetActive = onsetFor !== null && onsetFor === liveStateId;
+  // Üleminek mängib ka enne kõnet: kohe pärast sissejuhatust tekivad insuldi tunnused.
+  const onsetActive = onsetFor !== null && onsetFor === state?.stateId && (phase === 'scene' || phase === 'in_call');
 
   const report = session?.analysis;
 
@@ -101,20 +104,23 @@ export function HostView({ scenario }: { scenario: PublicScenario }) {
 
       {/* ── Tulemus ── */}
       {report ? (
-        <main className="gr-enter grid min-h-0 flex-1 grid-cols-1 gap-10 px-8 pb-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:px-16">
-          <div className="flex flex-col justify-center gap-4">
-            <p className="text-[clamp(96px,16vw,240px)] font-semibold leading-none tracking-[-0.05em] tabular-nums">{report.score}</p>
-            <p className="text-[clamp(22px,2.4vw,40px)] font-semibold leading-tight tracking-[-0.02em]">{outcomeLabel[report.outcome]}</p>
+        <main className="grid min-h-0 flex-1 grid-cols-1 gap-10 px-8 pb-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:px-16">
+          <div className="gr-stagger flex flex-col justify-center gap-4">
+            <p className="flex items-baseline gap-[0.08em] text-[clamp(96px,16vw,240px)] font-semibold leading-none tracking-[-0.05em] tabular-nums">
+              <CountUp value={report.score} />
+              <span className="text-[0.22em] font-medium tracking-normal text-subtle">/100</span>
+            </p>
+            <p className={cx('text-[clamp(22px,2.4vw,40px)] font-semibold leading-tight tracking-[-0.02em]', outcomeText[report.outcome])}>{outcomeLabel[report.outcome]}</p>
             <p className="text-[clamp(16px,1.5vw,24px)] leading-snug text-muted">{report.whatWouldHaveHappened}</p>
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="gr-motion mt-4 flex h-14 w-fit items-center rounded-full bg-primary px-8 text-lg font-semibold text-primary-fg hover:opacity-[0.88]"
+              className="gr-press mt-4 flex h-14 w-fit items-center rounded-full bg-primary px-8 text-lg font-semibold text-primary-fg hover:opacity-[0.88]"
             >
               Uus kõne
             </button>
           </div>
-          <div className="flex min-h-0 flex-col justify-center gap-3 overflow-y-auto">
+          <div className="gr-stagger flex min-h-0 flex-col justify-center gap-3 overflow-y-auto">
             {report.rubric.map((r) => (
               <div key={r.id} className="flex items-baseline gap-5 border-b border-border pb-3">
                 <span className="w-24 flex-none text-[clamp(20px,2vw,32px)] font-semibold tabular-nums">
@@ -147,7 +153,15 @@ export function HostView({ scenario }: { scenario: PublicScenario }) {
                 loop={s.kind === 'loop'}
                 active={!blackout && activeId === s.id && !(onsetActive && onsetFor === s.id)}
                 volume={sound ? (phase === 'in_call' ? 0.35 : 1) : 0}
-                onEnded={s.kind === 'intro' ? () => setIntroDone(true) : undefined}
+                onEnded={
+                  s.kind === 'intro'
+                    ? () => {
+                        setIntroDone(true);
+                        const next = scenario.states.find((x) => x.id === state?.stateId);
+                        if (next?.onsetClipUrl) setOnsetFor(next.id);
+                      }
+                    : undefined
+                }
               />
             ) : null,
           )}
@@ -191,7 +205,7 @@ export function HostView({ scenario }: { scenario: PublicScenario }) {
       ) : (
         /* ── Ooteruum: QR ── */
         <main className="grid min-h-0 flex-1 grid-cols-1 items-center gap-12 px-8 pb-8 lg:grid-cols-2 lg:px-16">
-          <div className="flex flex-col gap-6">
+          <div className="gr-stagger flex flex-col gap-6">
             <h1 className="text-[clamp(40px,5.2vw,96px)] font-semibold leading-[1.02] tracking-[-0.045em]">
               {phase === 'joined' ? 'Telefon on ühendatud.' : 'Skaneeri ja helista.'}
             </h1>
@@ -205,7 +219,7 @@ export function HostView({ scenario }: { scenario: PublicScenario }) {
               onClick={() => setSound((v) => !v)}
               aria-pressed={sound}
               className={cx(
-                'gr-motion flex h-14 w-fit items-center gap-3 rounded-full px-7 text-lg font-semibold',
+                'gr-press flex h-14 w-fit items-center gap-3 rounded-full px-7 text-lg font-semibold',
                 sound ? 'bg-surface-2 text-fg' : 'bg-primary text-primary-fg hover:opacity-[0.88]',
               )}
             >
@@ -213,7 +227,7 @@ export function HostView({ scenario }: { scenario: PublicScenario }) {
             </button>
             {!roomsConfigured() ? <p className="text-lg text-danger">Sünkroon ei ole seadistatud (NEXT_PUBLIC_SUPABASE_URL ja NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY).</p> : null}
           </div>
-          <div className="flex flex-col items-center gap-5">
+          <div className="gr-enter flex flex-col items-center gap-5">
             <div
               className={cx('gr-motion aspect-square w-full max-w-[min(46vh,520px)] rounded-shell bg-white p-5 [&>svg]:size-full', phase === 'joined' && 'opacity-30')}
               aria-label="QR-kood telefoniga liitumiseks"
