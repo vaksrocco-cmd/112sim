@@ -1,67 +1,147 @@
 @import "tailwindcss";
 
 /*
-  KUJUNDUSE TOKENID. Ainus koht, kus värvid ja fondid on kirjas.
-  Väärtused on Graphite disainisüsteemi TUMEDAST teemast (tokens.css, [data-theme="dark"]):
-  toon enne jooni (canvas -> surface -> surface-sunken), pehmed nurgad, pillikujulised nupud,
-  summutatud olekuvärvid. Aktsent on Graphite'i "danger" (savipunane): meie ainus aktsent on hädaabikõne.
-  Komponendid kasutavad ainult neid klasse: bg-bg, bg-surface, bg-surface-2, border-border, border-border-strong,
-  text-fg, text-muted, text-subtle, bg-accent, text-accent-fg, bg-accent-soft, text-ok, text-warn, text-danger,
-  bg-ok-soft, bg-warn-soft, bg-danger-soft, rounded-card, rounded-inner, rounded-full.
+  KUJUNDUSE TOKENID. Ainus koht, kus värvid, fondid ja kirjastiilid on kirjas.
+  Stiil: tume ja julge „Põhjamaade tehnoloogia“ (eeskuju: Junction). Reeglid, mida kogu rakendus järgib:
+  - must taust, valge kiri, ei ühtegi kaunistavat värvi; värv tähendab ainult infot (ok / warn / danger);
+  - pealkirjad on SUURTÄHTEDES, paksud (800) ja tihedad; tekst on tavaline lausestiil;
+  - üks kirjatüüp (Geist); väikesed sildid ja nupud on suurtähtedes ja hõreda vahega;
+  - nurgad on teravad (4 / 8 / 12 px); ümarad on ainult telefoni klahvid ja kõnenupud;
+  - alad eristuvad tooniga (bg -> surface -> surface-2), joon on ainult ridade vahel; varje ega kuma ei ole.
+  Kirjastiilid on klassidena allpool: type-display, type-title, type-label. Tekst: 13 / 15 / 17 px.
 */
 @theme {
-  --color-bg: #070606;            /* canvas */
-  --color-surface: #151414;       /* surface */
-  --color-surface-2: #1f1e1d;     /* surface-sunken */
-  --color-border: #2b2a29;        /* border */
-  --color-border-strong: #6e6b69; /* border-strong */
-  --color-fg: #f1f1f1;            /* ink */
-  --color-muted: #a9a6a3;         /* ink-muted */
-  --color-subtle: #8c8986;        /* ink-subtle */
-  --color-primary: #f1f1f1;       /* primary */
-  --color-primary-fg: #070606;    /* on-primary */
-  --color-accent: #eda79d;        /* danger */
-  --color-accent-fg: #070606;     /* on-danger */
-  --color-accent-soft: #331a17;   /* danger-soft */
-  --color-ok: #9fd0c8;            /* success */
-  --color-ok-soft: #14272a;       /* success-soft */
-  --color-warn: #e6c479;          /* warning-ink */
-  --color-warn-soft: #2b2412;     /* warning-soft */
-  --color-danger: #eda79d;        /* danger */
-  --color-danger-soft: #331a17;   /* danger-soft */
+  --color-bg: #050507;
+  --color-surface: #0f0f12;
+  --color-surface-2: #1a1a1e;
+  --color-border: #27272c;
+  --color-border-strong: #5c5c64;
+  --color-fg: #ffffff;
+  --color-muted: #ababb0;
+  --color-subtle: #7e7e86;
+  --color-primary: #ffffff;
+  --color-primary-fg: #050507;
+  --color-accent: #ff6b5e;
+  --color-accent-fg: #050507;
+  --color-accent-soft: #2e1512;
+  --color-ok: #8fe0c0;
+  --color-ok-soft: #10261f;
+  --color-warn: #f0cb6e;
+  --color-warn-soft: #2a2311;
+  --color-danger: #ff6b5e;
+  --color-danger-soft: #2e1512;
   --color-call: #30d158;          /* päris telefoni roheline helistamisnupp */
   --color-end: #ff453a;           /* päris telefoni punane lõpetamisnupp */
-  --color-info: #a3bce0;          /* info */
-  --color-info-soft: #1a2331;     /* info-soft */
+  --color-info: #a3bce0;
+  --color-info-soft: #1a2331;
 
   --font-sans: var(--font-geist-sans), "Helvetica Neue", Arial, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, Menlo, monospace;
 
-  --radius-inner: 12px;           /* radius-md */
-  --radius-card: 20px;            /* radius-lg */
-  --radius-shell: 28px;           /* radius-xl */
+  --radius-inner: 4px;
+  --radius-card: 8px;
+  --radius-shell: 12px;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
   --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.7);
+
+  /* Liikumine: pehme pidurdus sisenemisel, kerge vedru vajutuse vabastamisel. */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: linear(0, 0.33 8%, 0.68 17%, 0.9 26%, 1.01 35%, 1.045 44%, 1.035 54%, 1.012 66%, 1 80%, 1);
 }
 
-/* Liikumine Graphite'i komponentide järgi (components/bundle.css): ainult värv ja läbipaistvus, .14s ease-out. */
+/* Madal ekraan (väiksem telefon, brauseri ribad ees): klahvistik tõmbub kokku, et kõnenupp jääks nähtavale. */
+@custom-variant short (@media (max-height: 740px));
+
+/* ───────── Kirjastiilid ───────── */
+
+/* Suur pealkiri: suurtähed, paks, tihe. Suuruse annab koht (text-[..]). */
+@utility type-display {
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: -0.035em;
+  line-height: 0.95;
+}
+/* Väiksem pealkiri (kaardi sees, vahepealkiri). */
+@utility type-title {
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+/* Silt ja nupu tekst: väike, suurtähed, hõre. */
+@utility type-label {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* ───────── Liikumine ───────── */
+
+/* Värvi ja läbipaistvuse üleminek (Graphite: lühike ja funktsionaalne). */
 .gr-motion {
-  transition: opacity 0.14s ease-out, background-color 0.14s ease-out, color 0.14s ease-out;
+  transition:
+    opacity 0.16s ease-out,
+    background-color 0.16s ease-out,
+    color 0.16s ease-out;
 }
+
+/* Vajutus: element vajub kiiresti alla ja tuleb vedruga tagasi. */
+.gr-press {
+  transition:
+    transform 0.5s var(--ease-spring),
+    opacity 0.16s ease-out,
+    background-color 0.16s ease-out,
+    color 0.16s ease-out;
+}
+.gr-press:active {
+  transform: scale(0.95);
+  transition-duration: 0.08s, 0.16s, 0.16s, 0.16s;
+}
+
+/* Sisenemine: sisu tõuseb ja selgineb. */
 .gr-enter {
-  animation: gr-fade 0.16s ease-out both;
+  animation: gr-enter 0.6s var(--ease-out) both;
 }
-@keyframes gr-fade {
-  from { opacity: 0; }
-  to { opacity: 1; }
+/* Sama, aga lapsed tulevad üksteise järel. */
+.gr-stagger > * {
+  animation: gr-enter 0.7s var(--ease-out) both;
 }
+.gr-stagger > :nth-child(2) { animation-delay: 0.06s; }
+.gr-stagger > :nth-child(3) { animation-delay: 0.12s; }
+.gr-stagger > :nth-child(4) { animation-delay: 0.18s; }
+.gr-stagger > :nth-child(5) { animation-delay: 0.24s; }
+.gr-stagger > :nth-child(6) { animation-delay: 0.3s; }
+.gr-stagger > :nth-child(n + 7) { animation-delay: 0.36s; }
+@keyframes gr-enter {
+  from { opacity: 0; transform: translateY(10px); filter: blur(6px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+
+/* Riba täitub vasakult (hindamise read, skoor). */
+.gr-grow {
+  transform-origin: left;
+  animation: gr-grow 1s var(--ease-out) 0.2s both;
+}
+@keyframes gr-grow {
+  from { transform: scaleX(0); }
+}
+
+/* Ootel tekst („helistan…“, „Analüüsin kõnet…“) hingab aeglaselt. */
 .gr-pulse {
-  animation: gr-pulse 1.4s ease-out infinite;
+  animation: gr-pulse 1.6s ease-in-out infinite;
 }
 @keyframes gr-pulse {
-  0%, 100% { opacity: 0.25; }
-  50% { opacity: 0.9; }
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
+/* Lahtikäiv osa (ümbrik, ajajoon) avaneb sujuvalt. */
+details[open] > :not(summary) {
+  animation: gr-enter 0.4s var(--ease-out) both;
 }
 
 html,
@@ -69,9 +149,10 @@ body {
   background: var(--color-bg);
   color: var(--color-fg);
   font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* Graphite: fookus on 2px joon 2px vahega igal interaktiivsel elemendil. */
+/* Fookus on 2px joon 2px vahega igal interaktiivsel elemendil. */
 :focus-visible {
   outline: 2px solid var(--color-fg);
   outline-offset: 2px;
@@ -80,6 +161,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
   * {
     animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
     transition-duration: 0.01ms !important;
   }
 }

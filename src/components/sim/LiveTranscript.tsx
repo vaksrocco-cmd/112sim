@@ -1,6 +1,7 @@
 'use client';
 // Elavad subtiitrid nagu telefonis: ekraanil on ainult see, mida päästekorraldaja praegu ütleb, ja sinu viimane lause.
 import type { Speaker, TranscriptSegment } from '@/lib/types';
+import { Swap } from '@/components/ui';
 import { Highlighted } from './Highlighted';
 
 export function LiveTranscript({
@@ -11,18 +12,30 @@ export function LiveTranscript({
   partial: { speaker: Speaker; text: string } | null;
 }) {
   const sorted = [...segments].sort((a, b) => a.startMs - b.startMs);
-  const last = (sp: Speaker) => (partial?.speaker === sp && partial.text ? partial.text : [...sorted].reverse().find((s) => s.speaker === sp)?.text);
-  const dispatcher = last('dispatcher');
-  const caller = last('caller');
+  // Lause tekst ja järjekorranumber. Number püsib sama, kuni lause alles kasvab (osaline tekst -> valmis lause),
+  // nii et liikumine käivitub ainult uue lause alguses, mitte iga sõna peale.
+  const line = (sp: Speaker) => {
+    const done = sorted.filter((s) => s.speaker === sp);
+    const live = partial?.speaker === sp && partial.text ? partial.text : undefined;
+    return { text: live ?? done.at(-1)?.text, turn: live ? done.length : done.length - 1 };
+  };
+  const dispatcher = line('dispatcher');
+  const caller = line('caller');
   return (
-    <div aria-live="polite" className="flex min-h-0 flex-1 flex-col justify-center gap-3 overflow-y-auto px-1">
-      <p key={dispatcher} className="gr-enter text-[22px] font-semibold leading-7 tracking-[-0.02em] text-fg">
-        {dispatcher ?? '…'}
-      </p>
-      {caller ? (
-        <p key={caller} className="gr-enter text-[15px] leading-5 text-subtle">
-          <Highlighted text={caller} />
-        </p>
+    <div aria-live="polite" className="flex min-h-0 flex-1 flex-col justify-center gap-4 overflow-y-auto px-1">
+      <div className="relative flex flex-col gap-1.5">
+        <p className="type-label text-subtle">Häirekeskus</p>
+        <Swap id={dispatcher.turn} className="text-[24px] font-bold leading-[30px] tracking-[-0.02em] text-fg">
+          {dispatcher.text ?? '…'}
+        </Swap>
+      </div>
+      {caller.text ? (
+        <div className="relative flex flex-col gap-1">
+          <p className="type-label text-subtle">Sina</p>
+          <Swap id={caller.turn} className="text-[15px] leading-[22px] text-muted">
+            <Highlighted text={caller.text} />
+          </Swap>
+        </div>
       ) : null}
     </div>
   );

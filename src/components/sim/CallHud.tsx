@@ -10,8 +10,8 @@ export function CallHud({ callMs, activity, level }: { callMs: number; activity:
   return (
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0">
-        <p className="truncate text-xl font-semibold leading-6 tracking-[-0.02em] text-fg">Häirekeskus</p>
-        <p className={cx('text-sm leading-5 text-muted tabular-nums', connecting && 'gr-pulse')}>{connecting ? 'helistan…' : formatMs(callMs)}</p>
+        <p className="type-title truncate text-[17px] leading-6 text-fg">Häirekeskus</p>
+        <p className={cx('text-[15px] leading-5 text-muted tabular-nums', connecting && 'gr-pulse')}>{connecting ? 'helistan…' : formatMs(callMs)}</p>
       </div>
       {/* Helinivoo: tulpade läbipaistvus järgib häält (Graphite: liigub ainult värv ja läbipaistvus). */}
       <div className="mt-1.5 flex h-4 flex-none items-end gap-1" aria-hidden>
