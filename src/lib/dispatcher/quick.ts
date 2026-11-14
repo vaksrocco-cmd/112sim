@@ -94,7 +94,9 @@ export function parseAddress(text: string): { street: string | null; house: stri
     if (next && /^\d{1,3}[a-z]?$/u.test(next)) house = next;
     else if (next) house = numberWord(next, low[i + 2])?.value.toString() ?? null;
   }
-  const place = PLACES.find((p) => low.some((w, k) => k !== i - 1 && w.startsWith(p.toLowerCase()) && w.length <= p.length + 3));
+  // Kui lauses on mitu kohanime („Haabneemes, Viimsi Artiumis“), kehtib see, mis öeldi esimesena.
+  const hit = (w: string, k: number) => (k !== i - 1 ? PLACES.find((p) => w.startsWith(p.toLowerCase()) && w.length <= p.length + 3) : undefined);
+  const place = low.map(hit).find(Boolean);
   return { street, house, settlement: place ?? null, addressLike: i >= 0 || /\d/u.test(text) || Boolean(place) || low.some((w) => /^(teel|tänava\p{L}*|maantee\p{L}+|puiestee\p{L}+|põigu\p{L}*|korter\p{L}*|maja\p{L}*)$/u.test(w)) };
 }
 
@@ -112,13 +114,12 @@ export function demoQuick(state: CallState, callerText: string): Understanding |
   if (!state.what && (topic === null || topic === 'what')) {
     // Esimene lause: juhtunu helistaja sõnadega. Ainult „appi“ või „saatke kiirabi“ ei ole kirjeldus.
     if (words.length < 3 || /^(appi|palun|halloo?|tere)[\s,.!]*$/iu.test(text) || /^(saatke|kutsuge|tulge)\b/iu.test(text)) return null;
-    if (a.addressLike && !(a.street && a.house && a.settlement)) return null;
+    if (a.addressLike && !(a.street && a.house)) return null;
     return { ...base, what: text.slice(0, 120), street: a.street, house: a.house, settlement: a.settlement };
   }
-  if (topic?.startsWith('location') && words.length <= 8) {
-    const have = { street: state.street ?? a.street, house: state.house ?? a.house, settlement: state.settlement ?? a.settlement };
-    // Vasta ilma mudelita ainult siis, kui aadress sai sellega täis: muidu võis midagi kaduma minna.
-    if (have.street && have.house && have.settlement && (a.street || a.house || a.settlement)) return { ...base, street: a.street, house: a.house, settlement: a.settlement };
+  if (topic?.startsWith('location') && words.length <= 12) {
+    // Vasta ilma mudelita, kui tänav ja majanumber tulid selgelt välja (asula lisandub, kui see öeldi).
+    if (a.street && a.house) return { ...base, street: a.street, house: a.house, settlement: a.settlement };
   }
   return null;
 }

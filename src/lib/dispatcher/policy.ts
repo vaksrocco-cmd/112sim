@@ -250,12 +250,8 @@ function variant(list: readonly string[], n: number): string {
  * @param whitelist  stsenaariumi lubatud juhised (ainult neid tohib anda).
  */
 export function nextMove(prev: CallState, u: Understanding, opts: { whitelist: string[]; cue?: boolean; idle?: boolean; short?: boolean }): Move {
-  if (opts.short && !opts.cue) {
-    if (!prev.asked.demoDone) return demoMove(prev, u, opts);
-    // Demoskript on läbi, kõne jääb lahti: päästekorraldaja ise enam juttu ei alusta (esitlus läheb edasi),
-    // aga kui helistaja midagi ütleb, vastab ta edasi nagu pikas juhendavas kõnes.
-    if (opts.idle) return { say: '', emotion: 'rahulik', state: prev };
-  }
+  // Demorežiim: range skript, ka süsteemi märguandeid ei järgita.
+  if (opts.short) return demoMove(prev, u, opts);
   // 7. Lõpetamine: selge märguanne.
   if (opts.cue) {
     return { say: L.closing, emotion: 'rahulik', endCall: true, state: { ...prev, lastTopic: 'closing' } };
@@ -481,67 +477,39 @@ function guideStep(s: CallState, whitelist: string[], lastLine: string | null, w
 }
 
 /**
- * LÜHIKE DEMO (umbes 30 sekundit), kindel käik:
- *   1) mis juhtus  2) kus see toimub  3) millal see algas  4) mida teha ja oodata kiirabi saabumiseni.
- * Kõne jääb pärast seda lahti (taustal), päästekorraldaja ise seda ei lõpeta.
- * Päästekorraldaja kuulab vastuseid päriselt: aadress, mille ta abi saates ütleb, on see, mille helistaja ütles, ja poolikut
- * aadressi küsib ta osade kaupa juurde. Juhised tulevad ainult stsenaariumi lubatud loendist.
+ * DEMO (umbes 30 sekundit), RANGE skript. Päästekorraldaja ütleb ainult need laused ja mitte midagi muud:
+ *   „Häirekeskus, tere. Mis juhtus?“ -> „Kus see toimub?“ -> „Saadan kiirabi aadressile <aadress>. Millal see algas?“
+ *   -> „Ärge andke talle süüa, juua ega ravimeid. Tehke välisuks lahti … Püsige tema juures, kuni kiirabi kohale jõuab.“
+ * Ta ei korda küsimusi, ei küsi midagi juurde ega räägi vaikuses: kui vastusest ei saadud aru, ootab ta vaikides, kuni
+ * helistaja ütleb uuesti. Aadress, mille ta välja ütleb, on see, mille helistaja ütles. Pärast viimast lauset on ta vait
+ * ja kõne jääb taustal käima. Juhised tulevad ainult stsenaariumi lubatud loendist.
  */
-function demoMove(prev: CallState, u: Understanding, opts: { whitelist: string[]; idle?: boolean }): Move {
+function demoMove(prev: CallState, u: Understanding, opts: { whitelist: string[]; idle?: boolean; cue?: boolean }): Move {
+  const silent: Move = { say: '', emotion: 'rahulik', state: prev };
+  const step = prev.asked.demoStep ?? 0;
+  if (opts.idle || opts.cue || step >= 3) return silent;
   const s = applyUnderstanding(prev, u);
-  const parts: string[] = [];
-  let dispatch: Move['dispatch'];
-  const ask = (topic: string, list: readonly string[], emotion: Emotion = 'rahulik'): Move => {
-    const n = s.asked[topic] ?? 0;
-    let line = variant(list, n);
-    if (line === prev.lastQuestion) line = variant(list, n + 1);
-    if (opts.idle && n % 2 === 0) parts.push(L.hear);
-    s.asked[topic] = n + 1;
+  const say = (lines: string[], nextStep: number, topic: string, dispatch?: Move['dispatch']): Move => {
+    s.asked.demoStep = nextStep;
     s.lastTopic = topic;
-    s.lastQuestion = line;
-    return finish(s, [...parts, line], dispatch, n >= 2 ? 'kindel' : emotion);
+    s.lastQuestion = lines[lines.length - 1];
+    return finish(s, lines, dispatch, 'rahulik');
+  };
+  const hasPlace = Boolean(s.street || s.house || s.settlement);
+  const send = (): Move => {
+    s.dispatched = true;
+    return say([`Saadan kiirabi aadressile ${fullAddress(s)}.`, L.demoOnset], 2, 'onset', { address: fullAddress(s), summary: s.what ?? 'juhtunu täpsustamata' });
   };
 
-  if (u.intent === 'agitated') parts.push(L.calm[0]);
-  else if (u.intent === 'asks_eta' && !locationComplete(s)) parts.push(L.etaNotYet);
-
-  // 1) Mis juhtus (kuni kaks korda; siis edasi, et demo ei jääks kinni).
-  if (!s.what && (s.asked.what ?? 0) < 2) return ask('what', L.what);
-
-  // 2) Kus see toimub: puuduvat osa küsitakse eraldi.
-  if (!locationComplete(s)) {
-    if (u.unheard !== 'none') {
-      const line = L.unheard[u.unheard];
-      s.lastTopic = `location:${u.unheard}`;
-      s.lastQuestion = line;
-      return finish(s, [...parts, line], dispatch, 'rahulik');
-    }
-    if (!s.street && !s.house && !s.settlement) return ask('location:all', [L.demoWhere, L.locationOpen, L.landmark]);
-    if (!s.settlement) return ask('location:settlement', L.settlement);
-    if (!s.street) return ask('location:street', L.street);
-    return ask('location:house', L.house);
+  // 1) Mis juhtus. Kui helistaja ütles kohe ka aadressi, jääb „Kus see toimub?“ vahele.
+  if (step === 0) {
+    if (!s.what && !hasPlace) return { ...silent, state: s };
+    return s.street && s.house ? send() : say([L.demoWhere], 1, 'location:all');
   }
-
-  // Koht on teada: abi läheb kohe teele ja päästekorraldaja ütleb aadressi, mille ta kuulis.
-  if (!s.dispatched) {
-    s.dispatched = true;
-    dispatch = { address: fullAddress(s), summary: s.what ?? 'juhtunu täpsustamata' };
-    parts.push(`Saadan kiirabi aadressile ${fullAddress(s)}.`);
-  }
-
-  // 3) Millal see algas (üks kord).
-  if ((s.asked.onset ?? 0) < 1) return ask('onset', [L.demoOnset]);
-
-  // 4) Mida teha ja oodata kiirabi saabumiseni. Kõnet EI lõpetata: see jääb taustal käima.
+  // 2) Kus see toimub: abi läheb teele selle aadressiga, mis kuuldi. Kui kohta ei kuuldud, oota vaikides.
+  if (step === 1) return hasPlace ? send() : { ...silent, state: s };
+  // 3) Millal see algas: mis tahes vastus viib edasi. 4) Mida teha ja oodata kiirabi saabumiseni.
   const todo = [I.noFood, I.door].filter((line) => opts.whitelist.includes(line));
-  // Edasine (kui helistaja veel räägib) jätkub pika kõne loogikaga: aadressi ei küsita uuesti üle ja öeldud juhiseid ei korrata.
-  s.addressReadBack = true;
-  s.addressConfirmed = true;
   s.asked.demoDone = 1;
-  s.asked['g:food'] = 1;
-  s.asked['g:door'] = 1;
-  s.asked['g:doorCheck'] = 1;
-  s.lastTopic = 'guide';
-  s.lastQuestion = null;
-  return finish(s, [...parts, ...todo, ...L.demoWait], dispatch, 'rahulik');
+  return say([...todo, ...L.demoWait], 3, 'closing');
 }
