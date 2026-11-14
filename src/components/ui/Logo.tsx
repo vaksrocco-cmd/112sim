@@ -1,8 +1,8 @@
-/** 112Sim logo: telefonitoru ja punane „kõne käib“ täpp. SVG, värvid tokenitest. */
+/** CallAble logo: telefonitoru ja punane „kõne käib“ täpp. SVG, värvid tokenitest. */
 export function Logo({ size = 32, withName = true }: { size?: number; withName?: boolean }) {
   return (
     <span className="inline-flex items-center gap-2.5">
-      <svg viewBox="0 0 64 64" width={size} height={size} role="img" aria-label="112Sim" className="flex-none">
+      <svg viewBox="0 0 64 64" width={size} height={size} role="img" aria-label="CallAble" className="flex-none">
         <rect width="64" height="64" rx="6" className="fill-fg" />
         <path
           className="fill-bg"
@@ -10,7 +10,7 @@ export function Logo({ size = 32, withName = true }: { size?: number; withName?:
         />
         <circle cx="45" cy="19" r="5.5" className="fill-end" />
       </svg>
-      {withName ? <span className="text-[15px] font-extrabold uppercase tracking-[0.2em] text-fg">112Sim</span> : null}
+      {withName ? <span className="text-[15px] font-extrabold tracking-[0.04em] text-fg">CallAble</span> : null}
     </span>
   );
 }
