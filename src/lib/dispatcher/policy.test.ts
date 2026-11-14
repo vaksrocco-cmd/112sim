@@ -241,7 +241,7 @@ describe('dispatcher policy', () => {
     expect(fallbackUnderstanding('Jah, õige.').confirmation).toBe('yes');
   });
 
-  it('short demo: what -> where -> when -> what to do and wait, then the call ends', () => {
+  it('short demo: what -> where -> when -> what to do and wait, and the call stays open', () => {
     const wl = [...whitelist, 'Ärge andke talle süüa, juua ega ravimeid.'];
     const m: Move[] = [];
     let state = emptyCallState();
@@ -254,7 +254,12 @@ describe('dispatcher policy', () => {
     expect(m[1].dispatch?.address).toBe('Männikäbi tee 14, Haabneeme');
     expect(m[1].say).toBe('Saadan kiirabi aadressile Männikäbi tee 14, Haabneeme. Millal see algas?');
     expect(m[2].say).toBe('Ärge andke talle süüa, juua ega ravimeid. Tehke välisuks lahti, et kiirabi saaks sisse. Abi on teel. Püsige tema juures, kuni kiirabi kohale jõuab.');
-    expect(m[2].endCall).toBe(true);
+    // Kõne jääb lahti: päästekorraldaja ei lõpeta seda ega alusta vaikuses ise juttu, aga vastab, kui helistaja räägib.
+    expect(m[2].endCall).toBeUndefined();
+    expect(nextMove(m[2].state, NO_UNDERSTANDING, { whitelist: wl, short: true, idle: true }).say).toBe('');
+    const after = nextMove(m[2].state, u({}), { whitelist: wl, short: true });
+    expect(after.say).toBe('Kui vana ta on?');
+    expect(after.endCall).toBeUndefined();
     // Poolik aadress: küsib puuduva osa juurde, abi ei lähe enne teele.
     const part = nextMove(m[0].state, u({ street: 'Männikäbi tee', house: '14' }), { whitelist: wl, short: true });
     expect(part.say).toBe('Mis linnas või asulas see on?');

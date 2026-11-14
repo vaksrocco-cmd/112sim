@@ -250,7 +250,12 @@ function variant(list: readonly string[], n: number): string {
  * @param whitelist  stsenaariumi lubatud juhised (ainult neid tohib anda).
  */
 export function nextMove(prev: CallState, u: Understanding, opts: { whitelist: string[]; cue?: boolean; idle?: boolean; short?: boolean }): Move {
-  if (opts.short && !opts.cue) return demoMove(prev, u, opts);
+  if (opts.short && !opts.cue) {
+    if (!prev.asked.demoDone) return demoMove(prev, u, opts);
+    // Demoskript on läbi, kõne jääb lahti: päästekorraldaja ise enam juttu ei alusta (esitlus läheb edasi),
+    // aga kui helistaja midagi ütleb, vastab ta edasi nagu pikas juhendavas kõnes.
+    if (opts.idle) return { say: '', emotion: 'rahulik', state: prev };
+  }
   // 7. Lõpetamine: selge märguanne.
   if (opts.cue) {
     return { say: L.closing, emotion: 'rahulik', endCall: true, state: { ...prev, lastTopic: 'closing' } };
@@ -477,7 +482,8 @@ function guideStep(s: CallState, whitelist: string[], lastLine: string | null, w
 
 /**
  * LÜHIKE DEMO (umbes 30 sekundit), kindel käik:
- *   1) mis juhtus  2) kus see toimub  3) millal see algas  4) mida teha ja oodata kiirabi saabumiseni -> kõne lõpeb.
+ *   1) mis juhtus  2) kus see toimub  3) millal see algas  4) mida teha ja oodata kiirabi saabumiseni.
+ * Kõne jääb pärast seda lahti (taustal), päästekorraldaja ise seda ei lõpeta.
  * Päästekorraldaja kuulab vastuseid päriselt: aadress, mille ta abi saates ütleb, on see, mille helistaja ütles, ja poolikut
  * aadressi küsib ta osade kaupa juurde. Juhised tulevad ainult stsenaariumi lubatud loendist.
  */
@@ -526,9 +532,16 @@ function demoMove(prev: CallState, u: Understanding, opts: { whitelist: string[]
   // 3) Millal see algas (üks kord).
   if ((s.asked.onset ?? 0) < 1) return ask('onset', [L.demoOnset]);
 
-  // 4) Mida teha ja oodata kiirabi saabumiseni. Kõne lõpeb siin.
+  // 4) Mida teha ja oodata kiirabi saabumiseni. Kõnet EI lõpetata: see jääb taustal käima.
   const todo = [I.noFood, I.door].filter((line) => opts.whitelist.includes(line));
-  s.lastTopic = 'closing';
+  // Edasine (kui helistaja veel räägib) jätkub pika kõne loogikaga: aadressi ei küsita uuesti üle ja öeldud juhiseid ei korrata.
+  s.addressReadBack = true;
+  s.addressConfirmed = true;
+  s.asked.demoDone = 1;
+  s.asked['g:food'] = 1;
+  s.asked['g:door'] = 1;
+  s.asked['g:doorCheck'] = 1;
+  s.lastTopic = 'guide';
   s.lastQuestion = null;
-  return { ...finish(s, [...parts, ...todo, ...L.demoWait], dispatch, 'rahulik'), endCall: true };
+  return finish(s, [...parts, ...todo, ...L.demoWait], dispatch, 'rahulik');
 }
