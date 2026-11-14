@@ -4,7 +4,7 @@
 // Kui mikrofoni ei lubata, töötab sama voog tekstirežiimis (sendCallerText).
 // Heli ei salvestata: iga lause läheb tuvastusse ja visatakse ära.
 import { ACKS, emptyCallState, GREETING, nextMove, NO_UNDERSTANDING, type CallState, type Move, type Understanding } from '../dispatcher/policy';
-import { quickUnderstanding } from '../dispatcher/quick';
+import { demoQuick, quickUnderstanding } from '../dispatcher/quick';
 import type { CallMs, TranscriptSegment } from '../types';
 import staticLines from './lines.json';
 import type { DispatcherToolCall, VoiceEvents, VoiceProvider, VoiceStartOptions } from './VoiceProvider';
@@ -303,11 +303,21 @@ export function createCascadeVoice(): VoiceProvider {
 
       // KIIRTEE: vaikuse voor ja lihtne vastus („jah“, „14“, „sain ukse lahti“) otsustatakse siinsamas telefonis,
       // ilma serveri ja mudelita. Vastus algab kohe.
-      const quick: Understanding | null = opts.idle ? NO_UNDERSTANDING : callerText ? quickUnderstanding(callState ?? emptyCallState(), callerText) : null;
+      const known = callState ?? emptyCallState();
+      const quick: Understanding | null = opts.idle
+        ? NO_UNDERSTANDING
+        : callerText
+          ? ((short ? demoQuick(known, callerText) : null) ?? quickUnderstanding(known, callerText))
+          : null;
       if (whitelist && !cue && quick) {
         speculative?.ctrl.abort();
         speculative = null;
-        const move: Move = nextMove(callState ?? emptyCallState(), quick, { whitelist, idle: opts.idle, short });
+        const move: Move = nextMove(known, quick, { whitelist, idle: opts.idle, short });
+        // Pikemale lausele vasta nagu inimene: lühike kinnitus ette (mängib kohe, ka siis, kui aadressilause heli alles tehakse).
+        if (callerText && callerText.trim().split(/\s+/).length >= 4 && !speaking) {
+          ack = ACKS[ackCount++ % ACKS.length];
+          say(ack, 'calm');
+        }
         if (move.dispatch) onLine({ type: 'tool', name: 'dispatch_ambulance', input: { priority: 'A', address: move.dispatch.address, summary: move.dispatch.summary } });
         onLine({ type: 'text', delta: `[${move.emotion}] ${move.say}` });
         if (move.endCall) onLine({ type: 'tool', name: 'end_call', input: {} });
