@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { emptyCallState, fixedLines, nextMove, NO_UNDERSTANDING, type CallState, type Move, type Understanding } from './policy';
-import { fallbackUnderstanding } from './understand';
+import { fallbackUnderstanding, quickUnderstanding } from './understand';
 
 const whitelist = ['Jääge tema juurde, ärge jätke teda üksi.', 'Tehke välisuks lahti, et kiirabi saaks sisse.', 'Öelge mulle kohe, kui midagi muutub.'];
 const u = (p: Partial<Understanding>): Understanding => ({ ...NO_UNDERSTANDING, intent: 'info', ...p });
@@ -118,6 +118,21 @@ describe('dispatcher policy', () => {
         if (i > 0) expect(x.say).not.toBe(m[i - 1].say);
       });
     }
+  });
+
+  it('short answers to the question just asked are understood without the model', () => {
+    const at = (lastTopic: string) => ({ ...emptyCallState(), lastTopic });
+    expect(quickUnderstanding(at('confirm'), 'Jah, õige.')?.confirmation).toBe('yes');
+    expect(quickUnderstanding(at('confirm'), 'Ei.')?.confirmation).toBe('no');
+    expect(quickUnderstanding(at('conscious'), 'Jah, on.')?.conscious).toBe('yes');
+    expect(quickUnderstanding(at('breathing'), 'Ei hinga.')?.breathing).toBe('no');
+    expect(quickUnderstanding(at('location:house'), 'Neliteist')).toBeNull(); // sõnadega number läheb mudelile
+    expect(quickUnderstanding(at('location:house'), '14')?.house).toBe('14');
+    expect(quickUnderstanding(at('location:settlement'), 'Haabneemes.')?.settlement).toBe('Haabneeme');
+    expect(quickUnderstanding(at('location:settlement'), 'Tallinnas')?.settlement).toBe('Tallinn');
+    // Pikem või muutust sisaldav lause jääb mudelile.
+    expect(quickUnderstanding(at('conscious'), 'Jah, aga nüüd vajus ta kokku')).toBeNull();
+    expect(quickUnderstanding(at('what'), 'Jah')).toBeNull();
   });
 
   it('fallback understanding keeps the call moving without the model', () => {
