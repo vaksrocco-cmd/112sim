@@ -12,22 +12,30 @@ export function VideoStage({
   state,
   children,
   preload = [],
+  onEnded,
 }: {
   state?: ScenarioState;
   compact?: boolean;
   children?: ReactNode;
   /** Kõik stsenaariumi seisundid: nende klipid laetakse taustal ette. */
   preload?: ScenarioState[];
+  /** Kutsutakse, kui ühekordne klipp (sissejuhatus või lõpp) on läbi või ei lae. */
+  onEnded?: () => void;
 }) {
   const id = state?.id ?? '';
   const [failed, setFailed] = useState<Record<string, boolean>>({});
   const [loaded, setLoaded] = useState<Record<string, boolean>>({});
   // Üleminekuklipp mängib ainult siis, kui seisund vahetus kõne ajal (mitte esimesel kuvamisel).
   const firstId = useRef(id);
+  const prevKind = useRef(state?.kind);
+  const cameFromIntro = prevKind.current === 'intro' && state?.kind === 'loop';
+  useEffect(() => {
+    prevKind.current = state?.kind;
+  }, [state?.kind]);
   const [onsetDone, setOnsetDone] = useState<Record<string, boolean>>({});
   const loopRef = useRef<HTMLVideoElement>(null);
 
-  const showOnset = Boolean(state?.onsetClipUrl) && id !== firstId.current && !onsetDone[id];
+  const showOnset = Boolean(state?.onsetClipUrl) && id !== firstId.current && !cameFromIntro && !onsetDone[id];
   const wantVideo = Boolean(state?.clipUrl) && !failed[id];
   const visible = wantVideo && (loaded[id] || showOnset);
 
@@ -59,7 +67,11 @@ export function VideoStage({
           preload="auto"
           loop={state.kind === 'loop'}
           onLoadedData={() => setLoaded((l) => ({ ...l, [id]: true }))}
-          onError={() => setFailed((f) => ({ ...f, [id]: true }))}
+          onEnded={state.kind === 'loop' ? undefined : onEnded}
+          onError={() => {
+            setFailed((f) => ({ ...f, [id]: true }));
+            if (state.kind !== 'loop') onEnded?.();
+          }}
         />
       ) : null}
       {showOnset && state ? (

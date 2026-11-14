@@ -54,6 +54,7 @@ export async function POST(req: Request) {
       dispatcherWhitelist: scenario.dispatcherWhitelist.map((l) => `- ${l}`).join('\n'),
     }) +
     '\n\nKÕNETUVASTUS: helistaja jutt tuleb kõnetuvastusest ja võib sisaldada vigu (sarnase kõlaga sõnad, valesti kirjutatud kohanimed). Kui lause lõpus on nurksulgudes teine variant, on see sama lause teise tuvastaja järgi: vali mõistlikum tõlgendus ja ära kunagi maini variante ega kõnetuvastust. Aadressi korda üle nii, nagu see kõige tõenäolisemalt öeldi.' +
+    '\n\nTEMPO: see kõne kestab kokku umbes 30 sekundit. Ole väga lühike: iga vastus on üks lühike lause. Küsi ainult kõige olulisemat ja selles järjekorras: mis juhtus, täpne aadress koos asulaga, kas ta on teadvusel ja hingab. Saada kiirabi KOHE, kui tead, mis juhtus ja mis aadressil (ära oota vanust ega muid üksikasju). Pärast seda ütle üks juhis ja „Öelge kohe, kui midagi muutub.“ Ära küsi vanust ega seda, millal see algas.' +
     '\n\nTÄHTIS: kui kutsud tööriista, ütle ALATI samas vastuses ka üks lause helistajale. Vasta lühidalt: üks kuni kaks lauset.' +
     '\n\nTOON: alusta IGA vastust täpselt ühe märgendiga (seda ei loeta ette): [rahulik] tavaline toon; [kindel] kui helistaja ei vastanud su küsimusele või vastas ebamääraselt: korda küsimust lühemalt ja kindlamalt; [tungiv] kui helistaja on jätnud vastamata juba kaks korda või olukord halvenes: väga lühike ja nõudlik lause. Näide: "[kindel] Mis linnas või asulas te olete?"' +
     (dispatched ? '\n\nOLEK: kiirabi on JUBA välja saadetud. Ära saada seda uuesti; anna juhiseid ja jää liinile.' : '');
