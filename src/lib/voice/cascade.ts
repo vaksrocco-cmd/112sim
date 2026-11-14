@@ -63,7 +63,7 @@ export function createCascadeVoice(): VoiceProvider {
     const res = fetch('/api/voice/turn2', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ scenarioId, state: callState ?? undefined, lastDispatcherLine: lastDispatcherLine(), callerText: text.trim() }),
+      body: JSON.stringify({ scenarioId, state: callState ?? undefined, lastDispatcherLine: lastDispatcherLine(), callerText: text.trim(), short }),
       signal: ctrl.signal,
     }).catch(() => null);
     speculative = { text: text.trim(), res, ctrl };
@@ -100,6 +100,8 @@ export function createCascadeVoice(): VoiceProvider {
   let turnRunning = false;
   let idleTimer: ReturnType<typeof setTimeout> | null = null;
   let ackCount = 0;
+  /** Lühike demo (vaikimisi): mis juhtus -> kus -> millal -> mida teha. Pikk juhendav kõne: lisa aadressile ?pikk=1. */
+  let short = true;
   const clearIdle = () => {
     if (idleTimer) clearTimeout(idleTimer);
     idleTimer = null;
@@ -305,7 +307,7 @@ export function createCascadeVoice(): VoiceProvider {
       if (whitelist && !cue && quick) {
         speculative?.ctrl.abort();
         speculative = null;
-        const move: Move = nextMove(callState ?? emptyCallState(), quick, { whitelist, idle: opts.idle });
+        const move: Move = nextMove(callState ?? emptyCallState(), quick, { whitelist, idle: opts.idle, short });
         if (move.dispatch) onLine({ type: 'tool', name: 'dispatch_ambulance', input: { priority: 'A', address: move.dispatch.address, summary: move.dispatch.summary } });
         onLine({ type: 'text', delta: `[${move.emotion}] ${move.say}` });
         if (move.endCall) onLine({ type: 'tool', name: 'end_call', input: {} });
@@ -319,7 +321,7 @@ export function createCascadeVoice(): VoiceProvider {
         ack = ACKS[ackCount++ % ACKS.length];
         say(ack, 'calm');
       }
-      const body = { scenarioId, state: callState ?? undefined, lastDispatcherLine: lastDispatcherLine(), callerText, cue, idle: opts.idle };
+      const body = { scenarioId, state: callState ?? undefined, lastDispatcherLine: lastDispatcherLine(), callerText, cue, idle: opts.idle, short };
       const post = (url: string, payload: unknown) =>
         fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload), signal: ctrl.signal });
       // Kui sama teksti kohta on päring juba ette tehtud, kasuta selle vastust (säästab kuni sekundi).
@@ -733,6 +735,7 @@ export function createCascadeVoice(): VoiceProvider {
       callerTalking = false;
       turnRunning = false;
       ackCount = 0;
+      short = typeof window === 'undefined' || !new URLSearchParams(window.location.search).has('pikk');
       void fetch(`/api/scenarios/${opts.scenarioId}`)
         .then((r) => (r.ok ? r.json() : null))
         .then((sc: { dispatcherWhitelist?: string[] } | null) => {
