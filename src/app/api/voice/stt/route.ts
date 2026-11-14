@@ -21,6 +21,8 @@ const PLACES = [
   'Viimsi', 'Viimsi vald', 'Haabneeme', 'Pringi', 'Püünsi', 'Rohuneeme', 'Leppneeme', 'Tammneeme', 'Randvere', 'Miiduranna', 'Pärnamäe',
   'Lubja', 'Äigrumäe', 'Metsakasti', 'Muuga', 'Kelvingi', 'Laiaküla', 'Pirita', 'Merivälja', 'Mähe', 'Lasnamäe', 'Mustamäe', 'Õismäe',
   'Kristiine', 'Nõmme', 'Kalamaja', 'Kadriorg', 'Harjumaa', 'Rae vald', 'Jõelähtme', 'Loksa', 'Kehra', 'Paldiski',
+  // Sõnad, mida hädaabikõnes on vaja täpselt kuulda (üldine sõnavara, mitte stsenaariumi vastused).
+  'teadvusel', 'teadvuseta', 'hingab', 'ei hinga', 'suunurk', 'kiirabi', 'vanaema', 'insult',
 ];
 
 async function elevenLabsTranscribe(audio: Blob, filename: string): Promise<string> {

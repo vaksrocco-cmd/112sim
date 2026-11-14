@@ -5,7 +5,7 @@ import { fetchWithTimeout, LlmError } from './types';
 const URL = 'https://api.groq.com/openai/v1/audio/transcriptions';
 
 export const groqConfigured = () => Boolean(process.env.GROQ_API_KEY);
-export const groqSttModel = () => process.env.GROQ_STT_MODEL || 'whisper-large-v3-turbo';
+export const groqSttModel = () => process.env.GROQ_STT_MODEL || 'whisper-large-v3';
 
 /**
  * Kõnetuvastus (Whisper). `prompt` aitab konteksti anda, aga ÄRA pane sinna stsenaariumi tõde:
