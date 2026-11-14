@@ -1,6 +1,7 @@
 'use client';
 // Elavad subtiitrid nagu telefonis: ekraanil on ainult see, mida päästekorraldaja praegu ütleb, ja sinu viimane lause.
 import type { Speaker, TranscriptSegment } from '@/lib/types';
+import { Highlighted } from './Highlighted';
 
 export function LiveTranscript({
   segments,
@@ -20,7 +21,7 @@ export function LiveTranscript({
       </p>
       {caller ? (
         <p key={caller} className="gr-enter text-[15px] leading-5 text-subtle">
-          {caller}
+          <Highlighted text={caller} />
         </p>
       ) : null}
     </div>
