@@ -15,7 +15,7 @@ export interface ChatClientConfig {
   baseUrl: string;
   keyEnv: string;
   /** Mõtlemispingutus: mida saata `reasoning_effort` väljal (undefined = ära saada). */
-  effort: (requested?: string) => string | undefined;
+  effort: (requested?: string, model?: string) => string | undefined;
   /** Sama, kui päringus on tööriistad (Chat Completions ei luba mõne mudeliga tööriistu koos mõtlemisega). */
   toolEffort?: () => string | undefined;
 }
@@ -61,7 +61,7 @@ export function createChatClient(cfg: ChatClientConfig) {
     );
 
   function baseBody(opts: LlmCallOptions): Record<string, unknown> {
-    const effort = cfg.effort(opts.effort);
+    const effort = cfg.effort(opts.effort, opts.model);
     return {
       model: opts.model,
       messages: [...(opts.system ? [{ role: 'system', content: opts.system }] : []), ...opts.messages],
