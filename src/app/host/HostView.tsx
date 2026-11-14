@@ -18,6 +18,7 @@ const outcomeLabel = { good: 'Abi jõudis õigel ajal', delayed: 'Abi jõudis hi
 export function HostView({ scenario }: { scenario: PublicScenario }) {
   const [code, setCode] = useState('');
   const [qr, setQr] = useState('');
+  const [demo, setDemo] = useState(false);
   const [joinUrl, setJoinUrl] = useState('');
   const [state, setState] = useState<RoomState | null>(null);
   const [introDone, setIntroDone] = useState(false);
@@ -33,7 +34,10 @@ export function HostView({ scenario }: { scenario: PublicScenario }) {
   // Uus tuba: kood, QR ja kanal.
   useEffect(() => {
     const c = newRoomCode();
-    const url = `${window.location.origin}/sim/${scenario.id}?room=${c}`;
+    // Demorežiim (/host?demo=1) läheb QR-koodiga telefoni kaasa.
+    const isDemo = new URLSearchParams(window.location.search).has('demo');
+    setDemo(isDemo);
+    const url = `${window.location.origin}/sim/${scenario.id}?room=${c}${isDemo ? '&demo=1' : ''}`;
     setCode(c);
     setJoinUrl(url);
     setState(null);
@@ -225,6 +229,16 @@ export function HostView({ scenario }: { scenario: PublicScenario }) {
               {phase === 'joined'
                 ? 'Vajuta telefonis „Alusta“. Video algab siin ekraanil.'
                 : 'Ava telefoni kaamera ja skaneeri kood. Vaata siit ekraanilt, mis juhtub, ja kutsu telefoniga abi.'}
+            </p>
+            {/* Režiimi valik: tavaline harjutus (kuni 3 min, olukord muutub, lõpus raport) või lühike demo esitluseks. */}
+            <p className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[clamp(15px,1.2vw,20px)]">
+              <span className="type-label text-subtle">Režiim</span>
+              <a href="/host" className={cx('gr-motion underline-offset-4', demo ? 'text-subtle hover:text-fg' : 'font-semibold text-fg underline')}>
+                Tavaline · 3 min
+              </a>
+              <a href="/host?demo=1" className={cx('gr-motion underline-offset-4', demo ? 'font-semibold text-fg underline' : 'text-subtle hover:text-fg')}>
+                Demo · 30 s
+              </a>
             </p>
             {!roomsConfigured() ? <p className="text-lg text-danger">Sünkroon ei ole seadistatud (NEXT_PUBLIC_SUPABASE_URL ja NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY).</p> : null}
           </div>

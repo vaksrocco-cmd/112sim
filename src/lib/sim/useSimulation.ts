@@ -29,6 +29,8 @@ const TICK_MS = 500;
 const EXTRACT_DEBOUNCE_MS = 300;
 /** Kui režissöör ei lõpeta, lõpetame ise maxCallMs + see varu järel. */
 const HARD_STOP_GRACE_MS = 5000;
+/** Demorežiimis jääb kõne taustal käima; kui telefon ununeb, lõpeb see vaikselt selle aja järel. */
+const DEMO_MAX_MS = 10 * 60 * 1000;
 
 export function useSimulation(scenario: PublicScenario, opts: { onReport?: (id: string) => void } = {}) {
   const onReportRef = useRef(opts.onReport);
@@ -189,11 +191,14 @@ export function useSimulation(scenario: PublicScenario, opts: { onReport?: (id: 
       facts: factsRef.current,
       events: eventsRef.current,
     });
-    // Lühike demo (vaikimisi, ilma ?pikk=1): pärast skripti käib kõne vaikselt taustal, kuni esitlus läheb edasi.
-    // Seisund ei halvene (kokkuvajumise videot ei tule) ja päästekorraldaja ei ütle lõpulauset; kõne lõpeb vaikselt ajapiiriga.
-    const quiet = typeof window !== 'undefined' && !new URLSearchParams(window.location.search).has('pikk');
+    // Demorežiim (?demo=1): pärast skripti käib kõne vaikselt taustal, kuni esitlus läheb edasi. Seisund ei halvene
+    // (kokkuvajumise videot ei tule), päästekorraldaja ei ütle lõpulauset ja kõne lõpeb alles siis, kui helistaja selle lõpetab.
+    const quiet = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('demo');
+    if (quiet) {
+      if (nowMs > DEMO_MAX_MS) void endCall('timeout');
+      return;
+    }
     for (const a of actions) {
-      if (quiet && a.type !== 'finish') continue;
       if (a.type === 'transition') {
         const from = stateRef.current.id;
         stateRef.current = { id: a.to, enteredAtMs: nowMs };
