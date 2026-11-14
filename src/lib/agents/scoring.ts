@@ -138,9 +138,9 @@ export function scoreSession(session: CallSession, scenario: PublicScenario): Ru
   const d = f.dialogue;
   const q = questionStats(session);
   const asked = q ? q.asked : d.questionsAsked;
-  // Kohtunik loeb ainult asjakohaseid vastuseid; kui ta luges vähem kui transkriptist paistab, kehtib väiksem arv.
-  const judged = d.questionsAsked > 0 ? Math.min(d.questionsAnswered, d.questionsAsked) : Infinity;
-  const answered = q ? Math.min(q.answered, judged) : Math.min(d.questionsAnswered, d.questionsAsked);
+  // Kohtunik loeb ainult asjakohaseid vastuseid: kui tema arvates jäi rohkem küsimusi vastuseta, kehtib tema arv.
+  const judgedMissed = Math.max(0, d.questionsAsked - d.questionsAnswered);
+  const answered = q ? Math.max(0, q.asked - Math.max(q.asked - q.answered, judgedMissed)) : Math.min(d.questionsAnswered, d.questionsAsked);
   const answers =
     asked === 0
       ? row('answers', 0, 'Päästekorraldaja ei jõudnud ühtegi küsimust esitada.', { notApplicable: true })
