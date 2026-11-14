@@ -8,6 +8,13 @@
 //   1. ava kõne ühe küsimusega            5. kinnita oluline info ja vahenda edasi
 //   2. juhtunu ja sündmuskoht kohe          6. juhenda ja jälgi muutusi
 //   3.–4. vastusest lähtuvad täpsustused   7. selgita edasist ja lõpeta selge märguandega
+//
+// DEMO-STSENAARIUM (kindel küsimuste järjekord, vt DEMO_SCRIPT): Eesti avalikud juhised kirjeldavad kõnet nii:
+// mis juhtus -> kus (aadress) -> kes ja mitu abivajajat -> seisund -> jääge liinile. Häirekeskuse küsimustik põhineb
+// Taani mudelil (Dansk Indeks), mis küsib tüüpiliselt pärast aadressi vanust, teadvust, normaalset hingamist ja millal see algas.
+// Seisundiküsimusi küsitakse kuni kaks korda (teine kord teise sõnastusega), siis liigutakse edasi; ainult aadressi
+// kitsendatakse seni, kuni see on teada (ilma selleta ei saa abi saata).
+// Päästekorraldaja ütleb ainult siin failis kirjas olevaid lauseid (pluss aadressi ülekordus); vaba LLM-teksti ei ole.
 // Põhimõtted: üks küsimus korraga; asukohta kitsendatakse (asula -> tänav -> maja), mitte ei korrata sama palvet;
 // kuulmata osa küsitakse neutraalselt üle; abi saadetakse välja kohe, kui juhtum ja koht on teada, ja lisaküsimused
 // jätkuvad samal ajal; „abi on välja saadetud“ öeldakse ainult siis, kui see on päriselt tehtud; saabumisaega ei lubata.
@@ -156,6 +163,8 @@ const L = {
   confirmTail: 'Kas sain õigesti aru?',
   conscious: ['Kas ta on teadvusel?', 'Kas ta reageerib, kui te temaga räägite?', 'Kas ta vastab teile?'],
   breathing: ['Kas ta hingab normaalselt?', 'Vaadake, kas ta rind liigub. Kas ta hingab?', 'Kas ta hingab?'],
+  age: ['Kui vana ta on?', 'Umbes kui vana ta on?'],
+  onset: ['Millal see algas?', 'Mitu minutit tagasi see algas?'],
   dispatched: 'Abi on välja saadetud.',
   changeVague: 'Mis nüüd muutus?',
   changeNoted: 'Selge, annan selle kiirabile edasi.',
@@ -205,9 +214,9 @@ export function nextMove(prev: CallState, u: Understanding, opts: { whitelist: s
   let dispatch: Move['dispatch'];
 
   // Abi läheb teele kohe, kui juhtum ja koht on teada. Lisaküsimused jätkuvad samal ajal.
-  if (!s.dispatched && s.what && locationComplete(s)) {
+  if (!s.dispatched && (s.what || (s.asked.what ?? 0) >= 3) && locationComplete(s)) {
     s.dispatched = true;
-    dispatch = { address: fullAddress(s), summary: s.what };
+    dispatch = { address: fullAddress(s), summary: s.what ?? 'juhtunu täpsustamata' };
     parts.push(L.dispatched);
   }
 
@@ -257,18 +266,30 @@ function finish(state: CallState, parts: string[], dispatch: Move['dispatch'], e
 }
 
 /** Asukoha puhul loetakse kordusi puuduva osa kaupa: asula, tänava ja maja küsimine järjest ei ole kordamine. */
-type Topic = 'what' | 'location:all' | 'location:settlement' | 'location:street' | 'location:house' | 'confirm' | 'conscious' | 'breathing' | 'instruction';
+type Topic = 'what' | 'location:all' | 'location:settlement' | 'location:street' | 'location:house' | 'confirm' | 'age' | 'conscious' | 'breathing' | 'onset' | 'instruction';
+
+/** Mitu korda üht seisundiküsimust küsitakse, enne kui liigutakse edasi (demo ei jää kunagi kinni). */
+const MAX_ASKS = 2;
+
+/**
+ * DEMO_SCRIPT: päästekorraldaja küsimuste kindel järjekord. Samm jäetakse vahele, kui vastus on juba teada
+ * või kui seda on küsitud MAX_ASKS korda. Vanust ja algusaega ei salvestata: piisab, et helistaja vastas.
+ */
+const DEMO_SCRIPT: { topic: Topic; pending: (s: CallState, u: Understanding) => boolean }[] = [
+  { topic: 'what', pending: (s) => !s.what && (s.asked.what ?? 0) < 3 },
+  { topic: 'location:all', pending: (s) => !s.street && !s.house && !s.settlement },
+  { topic: 'location:settlement', pending: (s) => !s.settlement },
+  { topic: 'location:street', pending: (s) => !s.street },
+  { topic: 'location:house', pending: (s) => !s.house },
+  { topic: 'confirm', pending: (s, u) => !s.addressConfirmed && !(s.addressReadBack && u.confirmation === 'none' && (s.asked.confirm ?? 0) >= 2) },
+  { topic: 'age', pending: (s) => (s.asked.age ?? 0) < 1 },
+  { topic: 'conscious', pending: (s) => s.conscious === 'unknown' && (s.asked.conscious ?? 0) < MAX_ASKS },
+  { topic: 'breathing', pending: (s) => s.breathing === 'unknown' && (s.asked.breathing ?? 0) < MAX_ASKS },
+  { topic: 'onset', pending: (s) => (s.asked.onset ?? 0) < 1 },
+];
 
 function pickTopic(s: CallState, u: Understanding): Topic | null {
-  if (!s.what) return 'what';
-  if (!s.street && !s.house && !s.settlement) return 'location:all';
-  if (!s.settlement) return 'location:settlement';
-  if (!s.street) return 'location:street';
-  if (!s.house) return 'location:house';
-  if (!s.addressConfirmed && !(s.addressReadBack && u.confirmation === 'none' && (s.asked.confirm ?? 0) >= 2)) return 'confirm';
-  if (s.conscious === 'unknown') return 'conscious';
-  if (s.breathing === 'unknown') return 'breathing';
-  return 'instruction';
+  return DEMO_SCRIPT.find((step) => step.pending(s, u))?.topic ?? 'instruction';
 }
 
 function phrase(topic: Topic, s: CallState, u: Understanding, whitelist: string[]): string | null {
@@ -293,6 +314,10 @@ function phrase(topic: Topic, s: CallState, u: Understanding, whitelist: string[
       return variant(L.conscious, n);
     case 'breathing':
       return variant(L.breathing, n);
+    case 'age':
+      return variant(L.age, n);
+    case 'onset':
+      return variant(L.onset, n);
     case 'instruction': {
       // Juhised ainult stsenaariumi lubatud loendist, ükshaaval. „Öelge kohe, kui midagi muutub“ tuleb esimesena.
       const ordered = [L.tellChange, ...whitelist.filter((w) => w !== L.tellChange && !/hingab\?|rind liigub/i.test(w))];

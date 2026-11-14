@@ -1,6 +1,6 @@
 // HÄÄL (Sander, feat/voice). KNOWLEDGE.md 9.1. Kaskaadhääl:
 //   mikrofon -> (vaikuse tuvastus) -> /api/voice/stt (Groq Whisper, et)
-//            -> /api/voice/turn (OpenAI, voog + tööriistad) -> /api/voice/tts (TartuNLP) -> kõlar.
+//            -> /api/voice/turn2 (mudel mõistab, kood otsustab kindla lause) -> /api/voice/tts (TartuNLP) -> kõlar.
 // Kui mikrofoni ei lubata, töötab sama voog tekstirežiimis (sendCallerText).
 // Heli ei salvestata: iga lause läheb tuvastusse ja visatakse ära.
 import { GREETING, type CallState } from '../dispatcher/policy';
@@ -285,7 +285,16 @@ export function createCascadeVoice(): VoiceProvider {
           if (ctrl.signal.aborted) throw e;
           return null;
         }));
-      if (!res?.ok || !res.body) res = await post('/api/voice/turn', { scenarioId, messages, dispatched });
+      // Demo: vaba LLM-iga vana marsruuti (/api/voice/turn) enam ei kasutata, sest see mõtles lauseid välja.
+      // Kui kindla stsenaariumi voor ebaõnnestus, proovi sama vooru korra uuesti.
+      if (!res?.ok || !res.body)
+        res = await post('/api/voice/turn2', {
+          scenarioId,
+          state: callState ?? undefined,
+          lastDispatcherLine: lastDispatcherLine(),
+          callerText: cue ? undefined : lastUser?.content,
+          cue,
+        });
       if (!res.ok || !res.body) throw new Error(`Päästekorraldaja ei vasta (${res.status})`);
       const reader = res.body.getReader();
       const dec = new TextDecoder();
