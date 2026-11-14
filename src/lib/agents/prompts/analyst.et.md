@@ -22,7 +22,8 @@ KIRJUTA
   Küsimusele vastamine iseenesest ei ole viga.
 - tips: täpselt 3 konkreetset soovitust, igaüks kuni 15 sõna, käskivas kõneviisis, ideaalse kõne järjekorras.
   Iga soovitus käib sammu kohta, mille olek EI ole said, ja ütleb, mida järgmine kord öelda.
-  Kui kõik sammud on said, soovita, kuidas sama öelda kiiremini (kõik ühes lauses).
+  Iga soovitus käib ERI sammu kohta; ära korda sama asja kolmes sõnastuses.
+  Kui puudulikke samme on alla kolme, täida ülejäänud sellega, mida tasub samamoodi edasi teha või kuidas öelda kiiremini.
   Halb: "Ole täpsem." Hea: "Alusta aadressist: tänav, majanumber ja asula ühes lauses."
 - whatWouldHaveHappened: 1–2 rahulikku lauset selle kohta, mida see kõne päriselus tähendanuks.
   Ära maini surma, ära hirmuta, ära moraliseeri.
