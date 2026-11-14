@@ -483,8 +483,11 @@ export function createCascadeVoice(): VoiceProvider {
         startMs = null;
         precise = null;
         lastEndSample = commitSample;
-        // Oota täpset teksti kuni 0,7 s (see alustati juba lause lõppedes); kui see ei jõua, kasuta voomudeli teksti.
-        const better = p ? await Promise.race([p, new Promise<null>((r) => setTimeout(() => r(null), 700))]) : null;
+        // Täpset teksti on vaja seal, kus iga täht loeb (juhtunu ja aadress). Kui päästekorraldaja küsis just lihtsat asja
+        // (kinnitus, teadvus, hingamine), vastatakse kohe voomudeli teksti põhjal: see säästab ligi sekundi.
+        const topic = callState?.lastTopic ?? null;
+        const needsPrecise = topic === null || topic === 'what' || topic.startsWith('location');
+        const better = p && needsPrecise ? await Promise.race([p, new Promise<null>((r) => setTimeout(() => r(null), 600))]) : null;
         const text = better && /[\p{L}\p{N}]/u.test(better) ? better : rough;
         if (stopped) return;
         if (/[\p{L}\p{N}]/u.test(text)) callerSaid(text, s, now(), text === rough ? undefined : rough);
@@ -576,20 +579,20 @@ export function createCascadeVoice(): VoiceProvider {
         // välja arvatud siis, kui helistaja räägib selgelt vahele.
         if (speaking && !bargeIn) {
           held.push(out);
-          if (held.length > 6) held.shift();
+          if (held.length > 12) held.shift(); // ~3 s
           sendChunk(new Int16Array(out.length));
           return;
         }
         if (held.length) {
           // Värav avanes. Kui helistaja rääkis vahele, saada kogu hoitud heli järele. Kui päästekorraldaja lihtsalt lõpetas,
-          // saada järele ainult see osa, kus helistaja juba rääkis (vähemalt kaks kõnetugevusega tükki), et lause algus ei kaoks.
+          // saada järele ainult see osa, kus helistaja juba rääkis (vähemalt kolm kõnetugevusega tükki), et lause algus ei kaoks.
           const loud = (c: Int16Array) => {
             let sum = 0;
             for (let i = 0; i < c.length; i += 4) sum += c[i] * c[i];
             return Math.sqrt(sum / (c.length / 4)) > 900;
           };
           const first = bargeIn ? 0 : held.findIndex(loud);
-          if (first >= 0 && (bargeIn || held.slice(first).filter(loud).length >= 2)) for (const h of held.slice(first)) sendChunk(h);
+          if (first >= 0 && (bargeIn || held.slice(first).filter(loud).length >= 3)) for (const h of held.slice(first)) sendChunk(h);
           held = [];
         }
         // Kui üks lause on kestnud üle 12 s, lõpeta see ise ära, et päästekorraldaja saaks vastata.
