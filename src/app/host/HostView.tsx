@@ -19,6 +19,9 @@ export function HostView({ scenario }: { scenario: PublicScenario }) {
   const [introDone, setIntroDone] = useState(false);
   const [session, setSession] = useState<CallSession | null>(null);
   const lastSeen = useRef(0);
+  /** Seisund, mille üleminekuklipp parajasti mängib (üks kord, enne kordust). */
+  const [onsetFor, setOnsetFor] = useState<string | null>(null);
+  const prevStateId = useRef<string | null>(null);
 
   // Uus tuba: kood, QR ja kanal.
   useEffect(() => {
@@ -72,6 +75,19 @@ export function HostView({ scenario }: { scenario: PublicScenario }) {
   const activeId = showIntro ? intro!.id : goodEnd ? ending!.id : (state?.stateId ?? loops[0]?.id);
   const blackout = phase === 'ended' && !goodEnd;
 
+  // Kui seisund vahetub kõne ajal ja uuel seisundil on üleminekuklipp, mängi see enne kordust.
+  const liveStateId = phase === 'in_call' ? state?.stateId : undefined;
+  useEffect(() => {
+    if (!liveStateId) {
+      prevStateId.current = null;
+      return;
+    }
+    const prev = prevStateId.current;
+    prevStateId.current = liveStateId;
+    if (prev && prev !== liveStateId && scenario.states.find((s) => s.id === liveStateId)?.onsetClipUrl) setOnsetFor(liveStateId);
+  }, [liveStateId, scenario.states]);
+  const onsetActive = onsetFor !== null && onsetFor === liveStateId;
+
   const report = session?.analysis;
 
   return (
@@ -120,10 +136,21 @@ export function HostView({ scenario }: { scenario: PublicScenario }) {
         </main>
       ) : playing ? (
         /* ── Video, sünkroonis kõnega ── */
-        <main className="relative mx-8 mb-8 min-h-0 flex-1 overflow-hidden rounded-shell bg-surface">
+        <main className="relative mx-8 mb-8 min-h-0 flex-1 overflow-hidden rounded-shell bg-black">
           {[...(intro ? [intro] : []), ...loops, ...(ending ? [ending] : [])].map((s) =>
             s.clipUrl ? (
-              <HostClip key={s.id} src={s.clipUrl} loop={s.kind === 'loop'} active={!blackout && activeId === s.id} onEnded={s.kind === 'intro' ? () => setIntroDone(true) : undefined} />
+              <HostClip
+                key={s.id}
+                src={s.clipUrl}
+                loop={s.kind === 'loop'}
+                active={!blackout && activeId === s.id && !(onsetActive && onsetFor === s.id)}
+                onEnded={s.kind === 'intro' ? () => setIntroDone(true) : undefined}
+              />
+            ) : null,
+          )}
+          {loops.map((s) =>
+            s.onsetClipUrl ? (
+              <HostClip key={`onset-${s.id}`} src={s.onsetClipUrl} loop={false} active={!blackout && onsetActive && onsetFor === s.id} onEnded={() => setOnsetFor(null)} />
             ) : null,
           )}
 
@@ -194,12 +221,13 @@ function HostClip({ src, loop, active, onEnded }: { src: string; loop: boolean; 
     const v = ref.current;
     if (!v) return;
     if (active) {
-      if (!loop) v.currentTime = 0;
+      v.currentTime = 0; // kordus algab samast poosist, kus eelmine klipp lõppes
       void v.play().catch(() => undefined);
-    } else if (!loop) {
-      v.pause();
+      return;
     }
-  }, [active, loop]);
+    const t = setTimeout(() => v.pause(), 600); // peata alles pärast sulandust
+    return () => clearTimeout(t);
+  }, [active]);
   return (
     <video
       ref={ref}
@@ -210,7 +238,7 @@ function HostClip({ src, loop, active, onEnded }: { src: string; loop: boolean; 
       preload="auto"
       onEnded={onEnded}
       onError={onEnded}
-      className={cx('absolute inset-0 size-full object-cover transition-opacity duration-500 ease-out', active ? 'opacity-100' : 'opacity-0')}
+      className={cx('absolute inset-0 size-full bg-black object-contain transition-opacity duration-500 ease-out', active ? 'opacity-100' : 'opacity-0')}
     />
   );
 }

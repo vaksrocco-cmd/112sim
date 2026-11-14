@@ -1,0 +1,18 @@
+{
+  "name": "112sim-film",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Offline animation studio for the 112Sim film \"Vanaema köögis\". Not part of the app build.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "setup": "playwright install chromium",
+    "preview": "node serve.mjs",
+    "render": "node render.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.50.0"
+  }
+}

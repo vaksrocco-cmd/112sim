@@ -100,7 +100,7 @@ export function SimulationView({ scenario, room: roomCode }: { scenario: PublicS
         {roomCode ? (
           <p className="flex-none pt-2 text-center text-sm text-subtle">Vaata suurt ekraani</p>
         ) : (
-          <VideoStage state={first} compact />
+          <VideoStage state={first} preload={scenario.states} />
         )}
         <DialPad onCall={sim.startCall} busy={sim.phase === 'connecting'} onDigits={setDialed} />
         {error}
@@ -127,7 +127,7 @@ export function SimulationView({ scenario, room: roomCode }: { scenario: PublicS
       {roomCode ? (
         <div className="flex-none rounded-shell bg-surface px-4 py-4">{hud}</div>
       ) : (
-        <VideoStage state={sim.currentState} compact>
+        <VideoStage state={sim.currentState} preload={scenario.states}>
           {hud}
         </VideoStage>
       )}
