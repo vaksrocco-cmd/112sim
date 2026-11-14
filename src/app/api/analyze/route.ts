@@ -7,7 +7,7 @@ import { getScenario } from '@/lib/scenarios';
 
 export const maxDuration = 60;
 
-const Body = z.object({ sessionId: z.string() });
+const Body = z.object({ sessionId: z.string(), quick: z.boolean().optional() });
 
 export async function POST(req: Request) {
   const parsed = Body.safeParse(await req.json().catch(() => null));
@@ -16,7 +16,7 @@ export async function POST(req: Request) {
   if (!session) return NextResponse.json({ error: 'not_found' }, { status: 404 });
   const scenario = getScenario(session.scenarioId);
   if (!scenario) return NextResponse.json({ error: 'unknown_scenario' }, { status: 400 });
-  const report = await analyzeSession(session, scenario);
+  const report = await analyzeSession(session, scenario, { quick: parsed.data.quick });
   await saveAnalysis(session.id, report);
   return NextResponse.json(report);
 }

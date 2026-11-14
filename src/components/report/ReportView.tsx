@@ -4,6 +4,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { AnalysisReport, CallSession, Outcome, RubricItemResult } from '@/lib/types';
 import { Page, Panel, Progress, Reveal, buttonClass, cx } from '@/components/ui';
+import { AwaitFeedback } from './AwaitFeedback';
 import { CountUp } from './CountUp';
 import { FeedbackSteps, Tips } from './FeedbackSteps';
 import { formatMs } from '@/components/sim/format';
@@ -60,6 +61,7 @@ export function ReportView({ session, report }: { session: CallSession; report: 
             </div>
             <Progress value={report.score / 100} tone={outcomeBar[report.outcome]} />
             {report.summary ? <p className="text-[17px] leading-[26px] text-fg">{report.summary}</p> : null}
+            {report.aiPending ? <AwaitFeedback id={session.id} /> : null}
             {report.whatWouldHaveHappened ? <p className="text-[15px] leading-[22px] text-muted">{report.whatWouldHaveHappened}</p> : null}
           </section>
 

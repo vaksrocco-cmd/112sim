@@ -156,12 +156,17 @@ export function useSimulation(scenario: PublicScenario, opts: { onReport?: (id: 
         });
         if (!saved.ok) throw new Error(`Salvestamine ebaõnnestus (${saved.status})`);
         const { id } = (await saved.json()) as { id: string };
-        const analyzed = await fetch('/api/analyze', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ sessionId: id }),
-        });
+        // Tulemus kohe: punktid arvutab kood alla sekundiga. AI tekstid (7–10 s) tulevad järele ja raport täieneb ise.
+        const analyze = (quick: boolean) =>
+          fetch('/api/analyze', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ sessionId: id, quick }),
+            keepalive: true,
+          });
+        const analyzed = await analyze(true);
         if (!analyzed.ok) console.warn('[sim] analyze failed', analyzed.status);
+        void analyze(false).catch((e) => console.warn('[sim] full analyze failed', e));
         onReportRef.current?.(id);
         router.push(`/report/${id}`);
       } catch (e) {
