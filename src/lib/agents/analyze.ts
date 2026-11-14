@@ -74,7 +74,11 @@ export function fallbackTips(rubric: RubricItemResult[]): [string, string, strin
   return [ranked[0], ranked[1], ranked[2]];
 }
 
-export async function analyzeSession(session: CallSession, scenario: Scenario): Promise<AnalysisReport> {
+/**
+ * `quick`: ainult koodi osa (punktid, olekud, mallitekstid), kohe. Telefon ja suur ekraan näitavad seda
+ * oodates, kuni täielik analüüs (AI kokkuvõte, tsitaadid, soovitused) sama raporti üle kirjutab.
+ */
+export async function analyzeSession(session: CallSession, scenario: Scenario, opts: { quick?: boolean } = {}): Promise<AnalysisReport> {
   const rubric = scoreSession(session, scenario);
   const result = computeOutcome(session.finalFacts, session.events, scenario, session.durationMs);
   const callerSegments = session.transcript.filter((s) => s.speaker === 'caller');
@@ -93,6 +97,8 @@ export async function analyzeSession(session: CallSession, scenario: Scenario): 
     steps,
     whatWouldHaveHappened: buildEndingText(result) || 'Kiirabi sai õige info õigel ajal ja jõudis kiiresti kohale.',
   };
+
+  if (opts.quick) return { ...report, aiPending: true };
 
   try {
     const out = await llmJson<AnalystOutput>({

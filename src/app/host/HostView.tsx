@@ -64,7 +64,11 @@ export function HostView({ scenario }: { scenario: PublicScenario }) {
       for (let i = 0; i < 30 && !stop; i++) {
         const res = await fetch(`/api/sessions/${reportId}`, { cache: 'no-store' }).catch(() => null);
         const s = res?.ok ? ((await res.json()) as CallSession) : null;
-        if (s?.analysis) return setSession(s);
+        // Esmalt tuleb koodi raport; küsi edasi, kuni AI tekstid on ka kohal.
+        if (s?.analysis) {
+          setSession(s);
+          if (!s.analysis.aiPending) return;
+        }
         await new Promise((r) => setTimeout(r, 1500));
       }
     };

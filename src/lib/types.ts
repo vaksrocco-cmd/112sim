@@ -141,6 +141,7 @@ export interface AnalysisReport {
   whatWouldHaveHappened: string;
   summary?: string;                             // AI kokkuvõte kõnest, 1–2 lauset
   steps?: FeedbackStep[];                       // puudub vanadel raportitel
+  aiPending?: boolean;                          // true = punktid on koodist olemas, AI tekstid on veel teel
 }
 
 // ───────── Sessioon ─────────
