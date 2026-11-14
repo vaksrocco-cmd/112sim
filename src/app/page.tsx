@@ -49,7 +49,7 @@ export default function Home() {
       <header className="flex flex-col gap-6">
         <Logo />
         <h1 className="text-[40px] font-semibold leading-[1.02] tracking-[-0.045em] text-fg">Hädaabikõnes loeb iga sekund.</h1>
-        <p className="text-[19px] leading-7 text-muted">Keegi pole seda kõnet kunagi harjutanud. Tee see siin ära enne, kui seda päriselt vaja on.</p>
+        <p className="text-[19px] leading-7 text-muted">Keegi pole seda kõnet kunagi harjutanud. Tee see siin ühe minutiga ära enne, kui seda päriselt vaja on.</p>
         <div className="flex flex-col gap-3">
           <Cta>Alusta kursust</Cta>
           <Link href={SIM} className="gr-motion flex h-12 w-full items-center justify-center rounded-full bg-surface-2 text-base font-medium text-fg hover:bg-border">

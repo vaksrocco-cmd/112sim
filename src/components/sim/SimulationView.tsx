@@ -28,6 +28,9 @@ export function SimulationView({ scenario, room: roomCode }: { scenario: PublicS
   const [dialed, setDialed] = useState('');
   const [showBrain, setShowBrain] = useState(false);
   const [showKeyboard, setShowKeyboard] = useState(false);
+  /** Sissejuhatav klipp (midagi hakkab juhtuma) mängib üks kord pärast „Alusta“ vajutust; siis jääb olukord kordusena käima. */
+  const [introDone, setIntroDone] = useState(false);
+  const intro = scenario.states.find((st) => st.kind === 'intro');
 
   const live = sim.phase === 'in_call' || sim.phase === 'wrapping_up';
   const over = sim.phase === 'ended' || sim.phase === 'analyzing';
@@ -100,7 +103,7 @@ export function SimulationView({ scenario, room: roomCode }: { scenario: PublicS
         {roomCode ? (
           <p className="flex-none pt-2 text-center text-sm text-subtle">Vaata suurt ekraani</p>
         ) : (
-          <VideoStage state={first} preload={scenario.states} />
+          <VideoStage state={intro && !introDone ? intro : first} preload={scenario.states} onEnded={() => setIntroDone(true)} />
         )}
         <DialPad onCall={sim.startCall} busy={sim.phase === 'connecting'} onDigits={setDialed} />
         {error}
