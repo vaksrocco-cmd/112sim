@@ -4,6 +4,7 @@
 import QRCode from 'qrcode';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatMs } from '@/components/sim/format';
+import { Highlighted } from '@/components/sim/Highlighted';
 import { CountUp } from '@/components/report/CountUp';
 import { Logo } from '@/components/ui';
 import { cx } from '@/components/ui/cx';
@@ -198,7 +199,11 @@ export function HostView({ scenario }: { scenario: PublicScenario }) {
                   {state.dispatcherLine}
                 </p>
               ) : null}
-              {phase === 'in_call' && state?.callerLine ? <p className="text-[clamp(16px,1.6vw,28px)] leading-snug text-muted">{state.callerLine}</p> : null}
+              {phase === 'in_call' && state?.callerLine ? (
+                <p className="text-[clamp(16px,1.6vw,28px)] leading-snug text-muted">
+                  <Highlighted text={state.callerLine} scenario={scenario} />
+                </p>
+              ) : null}
               {phase === 'ended' ? <p className="gr-pulse text-[clamp(16px,1.4vw,24px)] text-muted">Analüüsin kõnet…</p> : null}
             </div>
           )}

@@ -2,6 +2,7 @@
 // Elavad subtiitrid nagu telefonis: ekraanil on ainult see, mida päästekorraldaja praegu ütleb, ja sinu viimane lause.
 import type { Speaker, TranscriptSegment } from '@/lib/types';
 import { Swap } from '@/components/ui';
+import { Highlighted } from './Highlighted';
 
 export function LiveTranscript({
   segments,
@@ -32,7 +33,7 @@ export function LiveTranscript({
         <div className="relative flex flex-col gap-1">
           <p className="type-label text-subtle">Sina</p>
           <Swap id={caller.turn} className="text-[15px] leading-[22px] text-muted">
-            {caller.text}
+            <Highlighted text={caller.text} />
           </Swap>
         </div>
       ) : null}
