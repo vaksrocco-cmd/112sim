@@ -429,7 +429,7 @@ export function createCascadeVoice(): VoiceProvider {
         const begin = () => {
           if (startMs !== null) return;
           startMs = Math.max(0, now() - 800);
-          startSample = Math.max(ringStart, total - Math.round(RATE * 1.5)); // 1,5 s varu, et lause algus jääks sisse
+          startSample = Math.max(ringStart, total - Math.round(RATE * 3)); // 3 s varu, et lause algus jääks kindlasti sisse
         };
         if (m.message_type === 'partial_transcript') {
           if (!text) return;
@@ -470,29 +470,40 @@ export function createCascadeVoice(): VoiceProvider {
       const mute = ctx.createGain();
       mute.gain.value = 0;
       const ratio = ctx.sampleRate / RATE;
-      node.onaudioprocess = (e) => {
-        const input = e.inputBuffer.getChannelData(0);
-        const out = new Int16Array(Math.floor(input.length / ratio));
-        // Kui päästekorraldaja räägib, saadetakse vaikust (muidu tuvastataks kõlarist kostev hääl helistaja jutuna),
-        // välja arvatud siis, kui helistaja räägib selgelt vahele.
-        if (!(speaking && !bargeIn)) {
-          for (let i = 0; i < out.length; i++) {
-            const a = Math.floor(i * ratio);
-            const b = Math.min(input.length, Math.max(a + 1, Math.floor((i + 1) * ratio)));
-            let sum = 0;
-            for (let j = a; j < b; j++) sum += input[j];
-            const v = Math.max(-1, Math.min(1, sum / (b - a)));
-            out[i] = v < 0 ? v * 0x8000 : v * 0x7fff;
-          }
-        }
-        ring.push(out);
-        total += out.length;
+      const sendChunk = (pcm: Int16Array) => {
+        ring.push(pcm);
+        total += pcm.length;
         while (ring.length && total - ringStart > RATE * 45) ringStart += ring.shift()!.length;
         if (ws.readyState !== WebSocket.OPEN) return;
-        const bytes = new Uint8Array(out.buffer);
+        const bytes = new Uint8Array(pcm.buffer);
         let bin = '';
         for (let i = 0; i < bytes.length; i += 0x2000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x2000));
         ws.send(JSON.stringify({ message_type: 'input_audio_chunk', audio_base_64: btoa(bin), commit: false, sample_rate: RATE }));
+      };
+      /** Viimased ~0,8 s päris heli ajast, mil tuvastusse läks vaikus: vahelerääkimisel saadetakse need järele, et lause algus ei kaoks. */
+      let held: Int16Array[] = [];
+      node.onaudioprocess = (e) => {
+        const input = e.inputBuffer.getChannelData(0);
+        const out = new Int16Array(Math.floor(input.length / ratio));
+        for (let i = 0; i < out.length; i++) {
+          const a = Math.floor(i * ratio);
+          const b = Math.min(input.length, Math.max(a + 1, Math.floor((i + 1) * ratio)));
+          let sum = 0;
+          for (let j = a; j < b; j++) sum += input[j];
+          const v = Math.max(-1, Math.min(1, sum / (b - a)));
+          out[i] = v < 0 ? v * 0x8000 : v * 0x7fff;
+        }
+        // Kui päästekorraldaja räägib, saadetakse vaikust (muidu tuvastataks kõlarist kostev hääl helistaja jutuna),
+        // välja arvatud siis, kui helistaja räägib selgelt vahele.
+        if (speaking && !bargeIn) {
+          held.push(out);
+          if (held.length > 3) held.shift();
+          sendChunk(new Int16Array(out.length));
+          return;
+        }
+        for (const h of held) sendChunk(h);
+        held = [];
+        sendChunk(out);
       };
       src.connect(node);
       node.connect(mute).connect(ctx.destination); // ScriptProcessor töötab ainult siis, kui see on väljundiga ühendatud
