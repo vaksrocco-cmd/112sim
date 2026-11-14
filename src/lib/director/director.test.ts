@@ -38,8 +38,8 @@ describe('directorStep', () => {
 
   it('moves S2 to S3 when the change is not reported within the window', () => {
     const facts = { ...goodFacts(), changeReports: [] };
-    expect(step(17999, 'S2', 4000, facts, [started, dispatched, toS2])).toEqual([]);
-    expect(step(18000, 'S2', 4000, facts, [started, dispatched, toS2])[0]).toMatchObject({ type: 'transition', to: 'S3' });
+    expect(step(23999, 'S2', 4000, facts, [started, dispatched, toS2])).toEqual([]);
+    expect(step(24000, 'S2', 4000, facts, [started, dispatched, toS2])[0]).toMatchObject({ type: 'transition', to: 'S3' });
   });
 
   it('asks the dispatcher to wrap up once help has arrived and the change is reported', () => {
