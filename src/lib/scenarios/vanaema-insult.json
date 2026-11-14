@@ -136,7 +136,7 @@
         "breathing": "yes"
       },
       "requiresReport": true,
-      "reportWindowMs": 20000,
+      "reportWindowMs": 30000,
       "onsetClipUrl": "/clips/vanaema/onset_s2.mp4"
     },
     {
@@ -170,7 +170,7 @@
         "breathing": "yes"
       },
       "requiresReport": true,
-      "reportWindowMs": 8000,
+      "reportWindowMs": 20000,
       "onsetClipUrl": "/clips/vanaema/onset_s3.mp4"
     },
     {
@@ -204,21 +204,18 @@
       "to": "S3",
       "when": [
         {
-          "type": "change_unreported"
-        },
-        {
-          "type": "location_incomplete_after",
-          "ms": 28000
+          "type": "call_elapsed",
+          "ms": 120000
         }
       ],
-      "reason": "seisund halveneb, sest info ei jõudnud päästekorraldajani"
+      "reason": "kahe minuti järel vajub vanaema kokku"
     }
   ],
   "rules": {
-    "addressDeadlineMs": 28000,
-    "arrivalAfterDispatchMs": 10000,
-    "wrapUpGraceMs": 5000,
-    "maxCallMs": 40000,
+    "addressDeadlineMs": 45000,
+    "arrivalAfterDispatchMs": 140000,
+    "wrapUpGraceMs": 8000,
+    "maxCallMs": 180000,
     "wrapUpCue": "[SÜSTEEM] Kiirabi jõudis just helistaja juurde. Ütle ühe lühikese lausega, et kiirabi on kohal ja helistaja võib kõne lõpetada. Seejärel kutsu end_call."
   },
   "dispatcherWhitelist": [

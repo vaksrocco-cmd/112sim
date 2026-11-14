@@ -100,7 +100,7 @@ export default function Home() {
           <div className="gr-stagger flex flex-col gap-7">
             <Logo />
             <h1 className="type-display text-[40px] text-fg md:text-[64px] lg:text-[52px] xl:text-[64px]">Hädaabikõnes loeb iga sekund.</h1>
-            <p className="text-[17px] leading-[26px] text-muted lg:max-w-xl lg:text-[19px] lg:leading-[30px]">Keegi pole seda kõnet kunagi harjutanud. Tee see siin ühe minutiga ära enne, kui seda päriselt vaja on.</p>
+            <p className="text-[17px] leading-[26px] text-muted lg:max-w-xl lg:text-[19px] lg:leading-[30px]">Keegi pole seda kõnet kunagi harjutanud. Tee see siin kolme minutiga ära enne, kui seda päriselt vaja on.</p>
             <Actions />
           </div>
           <FormatPreview />
@@ -114,7 +114,7 @@ export default function Home() {
             Häirekeskus saab <Src href={SOURCES.err}>3000 kõnet päevas</Src>. Kõige sagedasem viga on <Src href={SOURCES.postimees}>aadress ilma linnata</Src>, ja{' '}
             <Src href={SOURCES.insult}>insuldi puhul loeb iga minut</Src>.
           </Block>
-          <Block label="Kasu" title="Üks minut harjutust.">
+          <Block label="Kasu" title="Kolm minutit harjutust.">
             Näed olukorda, valid 112 ja räägid päris häälega. Olukord muutub kõne ajal ja lõpus näed, mis jäi ütlemata.
           </Block>
         </div>
