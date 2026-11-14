@@ -1,7 +1,7 @@
 // Avaleht: probleem -> valu -> lahendus, minimaalselt. Kõik numbrid on allikatega (KNOWLEDGE.md 3.4 ja 24).
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { Logo } from '@/components/ui';
+import { Logo, Page, buttonClass } from '@/components/ui';
 
 const SIM = '/sim/vanaema-insult';
 const HOST = '/host';
@@ -10,89 +10,115 @@ const SOURCES = {
   err: 'https://www.err.ee/909525/uha-enam-numbrile-112-helistajaid-soovib-abi-metsloomale',
   postimees: 'https://www.postimees.ee/593418/valjasoiduni-viib-iga-kolmas-hadaabikone',
   insult: 'https://www.postimees.ee/6807301/insuldi-korral-tegutse-kiiresti',
-  callersim: 'https://www.helse-stavanger.no/en/research-education/resources-and-networks/rakos/oversikt-over-prosjekter/callersim/',
 };
 
-function Cta({ children, href = HOST }: { children: ReactNode; href?: string }) {
+/**
+ * Kaks sissepääsu. Laual on põhinupp kursus (suur ekraan + telefon), telefonis üksi proovimine:
+ * suure ekraani vaadet ei ole mõtet telefonis avada. Mõlemad lingid on alati olemas.
+ */
+function Actions() {
+  const primary = buttonClass({ size: 'xl' });
+  const secondary = buttonClass({ variant: 'secondary', size: 'xl' });
   return (
-    <Link href={href} className="gr-motion flex h-14 w-full items-center justify-center rounded-full bg-primary text-[17px] font-semibold text-primary-fg hover:opacity-[0.88]">
-      {children}
-    </Link>
+    <>
+      <div className="flex flex-col gap-3 md:hidden">
+        <Link href={SIM} className={primary}>
+          Proovi üksi telefonis
+        </Link>
+        <Link href={HOST} className={secondary}>
+          Alusta kursust suurel ekraanil
+        </Link>
+      </div>
+      <div className="hidden gap-3 md:flex">
+        <Link href={HOST} className={primary}>
+          Alusta kursust
+        </Link>
+        <Link href={SIM} className={secondary}>
+          Proovi üksi
+        </Link>
+      </div>
+    </>
   );
 }
 
-function Fact({ value, label, href }: { value: string; label: string; href: string }) {
+/** Üks plokk kolmest (valu, probleem, kasu): silt, julge väide, üks lõik selgitust. */
+function Block({ label, title, children }: { label: string; title: string; children: ReactNode }) {
   return (
-    <a href={href} target="_blank" rel="noreferrer" className="gr-motion flex items-baseline gap-4 border-b border-border py-4 hover:opacity-[0.88]">
-      <span className="w-24 flex-none text-[30px] font-semibold leading-none tracking-[-0.03em] text-fg">{value}</span>
-      <span className="text-[15px] leading-5 text-muted">{label}</span>
+    <section className="flex flex-col gap-4 border-t border-border pt-6">
+      <h2 className="type-label text-subtle">{label}</h2>
+      <p className="type-title text-[24px] text-fg lg:text-[32px]">{title}</p>
+      <p className="text-[15px] leading-[24px] text-muted lg:text-[17px] lg:leading-[26px]">{children}</p>
+    </section>
+  );
+}
+
+/** Allikaviide teksti sees. */
+function Src({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <a href={href} target="_blank" rel="noreferrer" className="gr-motion text-fg underline decoration-border-strong underline-offset-4 hover:decoration-fg">
+      {children}
     </a>
   );
 }
 
-function Step({ n, text }: { n: string; text: string }) {
+/**
+ * Pilt formaadist (ainult laual): video mängib suurel ekraanil, telefonis on klahvistik ja valitud 112.
+ * Dekoratiivne: ei ole interaktiivne ega ole tel: link.
+ */
+function FormatPreview() {
+  const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'];
   return (
-    <div className="flex items-baseline gap-4 border-b border-border py-4">
-      <span className="w-6 flex-none text-sm tabular-nums text-subtle">{n}</span>
-      <span className="text-[17px] font-medium leading-6 text-fg">{text}</span>
+    <div aria-hidden className="gr-enter relative hidden w-[460px] flex-none pb-20 pr-12 lg:block">
+      <div className="relative aspect-video overflow-hidden rounded-card bg-surface">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/clips/vanaema/s1.jpg" alt="" className="absolute inset-0 size-full object-cover" />
+      </div>
+      <div className="absolute bottom-0 right-0 flex w-[148px] flex-col items-center gap-3 rounded-shell bg-surface px-4 pb-4 pt-5 shadow-lg">
+        <p className="text-[24px] font-extrabold leading-[30px] tracking-[-0.02em] text-fg">112</p>
+        <div className="grid grid-cols-3 gap-1.5">
+          {keys.map((k) => (
+            <span key={k} className="flex size-8 items-center justify-center rounded-full bg-surface-2 text-[13px] leading-none text-fg">
+              {k}
+            </span>
+          ))}
+        </div>
+        <span className="flex size-8 items-center justify-center rounded-full bg-call text-white">
+          <svg viewBox="0 0 24 24" className="size-4" fill="currentColor">
+            <path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25c1.1.37 2.3.57 3.6.57a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z" />
+          </svg>
+        </span>
+      </div>
     </div>
   );
 }
 
-function Label({ children }: { children: ReactNode }) {
-  return <h2 className="text-xs font-medium text-subtle">{children}</h2>;
-}
-
 export default function Home() {
   return (
-    <div className="flex flex-col gap-16 pb-10 pt-6">
-      <header className="flex flex-col gap-6">
-        <Logo />
-        <h1 className="text-[40px] font-semibold leading-[1.02] tracking-[-0.045em] text-fg">Hädaabikõnes loeb iga sekund.</h1>
-        <p className="text-[19px] leading-7 text-muted">Keegi pole seda kõnet kunagi harjutanud. Tee see siin ühe minutiga ära enne, kui seda päriselt vaja on.</p>
-        <div className="flex flex-col gap-3">
-          <Cta>Alusta kursust</Cta>
-          <Link href={SIM} className="gr-motion flex h-12 w-full items-center justify-center rounded-full bg-surface-2 text-base font-medium text-fg hover:bg-border">
-            Proovi üksi telefonis
-          </Link>
-        </div>
-      </header>
-
-      <section>
-        <Label>Probleem</Label>
-        <Fact value="3000" label="kõnet päevas numbrile 112" href={SOURCES.err} />
-        <Fact value="~70%" label="neist on tervisemured" href={SOURCES.err} />
-        <Fact value="4,5 h" label="on insuldi ravi aken. Iga minut loeb." href={SOURCES.insult} />
-        <Fact value="1 viga" label="kordub enim: poolik aadress, ilma linnata" href={SOURCES.postimees} />
-      </section>
-
-      <section>
-        <Label>Lahendus</Label>
-        <Step n="1" text="Skaneerid koodi suurelt ekraanilt." />
-        <Step n="2" text="Näed olukorda ja valid 112." />
-        <Step n="3" text="Olukord muutub. Kas märkad?" />
-        <Step n="4" text="Näed, mis jäi ütlemata." />
-      </section>
-
-      <footer className="flex flex-col gap-5">
-        <Cta>Alusta kursust</Cta>
-        <p className="text-xs leading-5 text-subtle">
-          Heli ei salvestata. Ei ole Häirekeskuse ametlik toode.{' '}
-          <a href={SOURCES.callersim} target="_blank" rel="noreferrer" className="underline underline-offset-2">
-            Norras tehakse sama: CallerSim
-          </a>
-          .
-        </p>
-        {process.env.NODE_ENV !== 'production' ? (
-          <div className="flex flex-wrap gap-4">
-            {['/dev/voice', '/dev/stage', '/dev/report'].map((h) => (
-              <Link key={h} className="text-sm text-muted underline" href={h}>
-                {h}
-              </Link>
-            ))}
+    <Page width="wide">
+      <div className="flex flex-col gap-16 pb-10 pt-6 lg:gap-28 lg:pt-10">
+        <header className="lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-16">
+          <div className="gr-stagger flex flex-col gap-7">
+            <Logo />
+            <h1 className="type-display text-[40px] text-fg md:text-[64px] lg:text-[52px] xl:text-[64px]">Hädaabikõnes loeb iga sekund.</h1>
+            <p className="text-[17px] leading-[26px] text-muted lg:max-w-xl lg:text-[19px] lg:leading-[30px]">Keegi pole seda kõnet kunagi harjutanud. Tee see siin ühe minutiga ära enne, kui seda päriselt vaja on.</p>
+            <Actions />
           </div>
-        ) : null}
-      </footer>
-    </div>
+          <FormatPreview />
+        </header>
+
+        <div className="grid gap-10 lg:grid-cols-3 lg:gap-8">
+          <Block label="Valu" title="Esimene kõne on päris kõne.">
+            Kui lähedasega midagi juhtub, helistad sa 112 esimest korda elus. Paanikas ja ilma ühegi harjutuseta.
+          </Block>
+          <Block label="Probleem" title="Poolik aadress maksab minuteid.">
+            Häirekeskus saab <Src href={SOURCES.err}>3000 kõnet päevas</Src>. Kõige sagedasem viga on <Src href={SOURCES.postimees}>aadress ilma linnata</Src>, ja{' '}
+            <Src href={SOURCES.insult}>insuldi puhul loeb iga minut</Src>.
+          </Block>
+          <Block label="Kasu" title="Üks minut harjutust.">
+            Näed olukorda, valid 112 ja räägid päris häälega. Olukord muutub kõne ajal ja lõpus näed, mis jäi ütlemata.
+          </Block>
+        </div>
+      </div>
+    </Page>
   );
 }

@@ -21,8 +21,9 @@ export function HostView({ scenario }: { scenario: PublicScenario }) {
   const [introDone, setIntroDone] = useState(false);
   const [session, setSession] = useState<CallSession | null>(null);
   const lastSeen = useRef(0);
-  /** Video heli (toaheli, kell, Helgi häälitsused). Brauser lubab heli alles pärast klõpsu sellel lehel. */
-  const [sound, setSound] = useState(false);
+  /** Video heli (toaheli, kell, Helgi häälitsused) on vaikimisi sees. Kui brauser heli veel ei luba, mängib video vaikselt
+   *  ja heli tuleb sisse esimese klõpsu või klahvivajutusega sellel lehel (vt HostClip). */
+  const sound = true;
   /** Seisund, mille üleminekuklipp parajasti mängib (üks kord, enne kordust). */
   const [onsetFor, setOnsetFor] = useState<string | null>(null);
   const prevStateId = useRef<string | null>(null);
@@ -106,16 +107,16 @@ export function HostView({ scenario }: { scenario: PublicScenario }) {
       {report ? (
         <main className="grid min-h-0 flex-1 grid-cols-1 gap-10 px-8 pb-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:px-16">
           <div className="gr-stagger flex flex-col justify-center gap-4">
-            <p className="flex items-baseline gap-[0.08em] text-[clamp(96px,16vw,240px)] font-semibold leading-none tracking-[-0.05em] tabular-nums">
+            <p className="flex items-baseline gap-[0.08em] type-display text-[clamp(96px,16vw,240px)]">
               <CountUp value={report.score} />
               <span className="text-[0.22em] font-medium tracking-normal text-subtle">/100</span>
             </p>
-            <p className={cx('text-[clamp(22px,2.4vw,40px)] font-semibold leading-tight tracking-[-0.02em]', outcomeText[report.outcome])}>{outcomeLabel[report.outcome]}</p>
+            <p className={cx('type-title text-[clamp(22px,2.4vw,40px)]', outcomeText[report.outcome])}>{outcomeLabel[report.outcome]}</p>
             <p className="text-[clamp(16px,1.5vw,24px)] leading-snug text-muted">{report.whatWouldHaveHappened}</p>
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="gr-press mt-4 flex h-14 w-fit items-center rounded-full bg-primary px-8 text-lg font-semibold text-primary-fg hover:opacity-[0.88]"
+              className="gr-press type-label mt-4 flex h-14 w-fit items-center rounded-inner bg-primary px-8 text-primary-fg hover:opacity-[0.88]"
             >
               Uus kõne
             </button>
@@ -123,7 +124,7 @@ export function HostView({ scenario }: { scenario: PublicScenario }) {
           <div className="gr-stagger flex min-h-0 flex-col justify-center gap-3 overflow-y-auto">
             {report.rubric.map((r) => (
               <div key={r.id} className="flex items-baseline gap-5 border-b border-border pb-3">
-                <span className="w-24 flex-none text-[clamp(20px,2vw,32px)] font-semibold tabular-nums">
+                <span className="type-title w-24 flex-none text-[clamp(20px,2vw,32px)]">
                   {r.points}
                   <span className="text-subtle">/{r.maxPoints}</span>
                 </span>
@@ -174,26 +175,26 @@ export function HostView({ scenario }: { scenario: PublicScenario }) {
           {phase === 'in_call' ? (
             <div className="absolute inset-x-0 top-0 flex items-start justify-between bg-gradient-to-b from-bg/80 to-transparent px-8 pb-16 pt-6">
               <div>
-                <p className="text-[clamp(24px,2.6vw,44px)] font-semibold leading-tight tracking-[-0.02em]">Häirekeskus</p>
+                <p className="type-title text-[clamp(24px,2.6vw,44px)]">Häirekeskus</p>
                 <p className="text-[clamp(18px,1.6vw,28px)] text-muted">kõne käib</p>
               </div>
-              <p className="text-[clamp(40px,5vw,88px)] font-semibold leading-none tracking-[-0.03em] tabular-nums">{formatMs(state?.callMs ?? 0)}</p>
+              <p className="type-display text-[clamp(40px,5vw,88px)] tabular-nums">{formatMs(state?.callMs ?? 0)}</p>
             </div>
           ) : null}
 
           {phase === 'scene' && state?.dialed ? (
-            <p className="absolute right-8 top-6 text-[clamp(40px,5vw,88px)] font-light leading-none tracking-[0.08em] tabular-nums">{state.dialed}</p>
+            <p className="absolute right-8 top-6 text-[clamp(40px,5vw,88px)] font-light leading-none tracking-[0.08em]">{state.dialed}</p>
           ) : null}
 
           {blackout ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 bg-bg px-[8vw] text-center">
-              <p className="gr-enter text-[clamp(28px,3.6vw,64px)] font-semibold leading-tight tracking-[-0.02em]">{state?.endingText || 'Kõne lõppes.'}</p>
+              <p className="gr-enter type-title text-[clamp(28px,3.6vw,64px)]">{state?.endingText || 'Kõne lõppes.'}</p>
               <p className="gr-pulse text-[clamp(16px,1.4vw,24px)] text-muted">Analüüsin kõnet…</p>
             </div>
           ) : (
             <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 bg-gradient-to-t from-bg/95 via-bg/70 to-transparent px-8 pb-8 pt-24">
               {phase === 'in_call' && state?.dispatcherLine ? (
-                <p key={state.dispatcherLine} className="gr-enter text-[clamp(26px,3.2vw,56px)] font-semibold leading-tight tracking-[-0.02em]">
+                <p key={state.dispatcherLine} className="gr-enter text-[clamp(26px,3.2vw,56px)] font-bold leading-tight tracking-[-0.02em]">
                   {state.dispatcherLine}
                 </p>
               ) : null}
@@ -204,9 +205,9 @@ export function HostView({ scenario }: { scenario: PublicScenario }) {
         </main>
       ) : (
         /* ── Ooteruum: QR ── */
-        <main className="grid min-h-0 flex-1 grid-cols-1 items-center gap-12 px-8 pb-8 lg:grid-cols-2 lg:px-16">
-          <div className="gr-stagger flex flex-col gap-6">
-            <h1 className="text-[clamp(40px,5.2vw,96px)] font-semibold leading-[1.02] tracking-[-0.045em]">
+        <main className="mx-auto grid min-h-0 w-full max-w-[1600px] flex-1 grid-cols-1 items-center gap-12 px-8 pb-12 lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-24 lg:px-16">
+          <div className="gr-stagger flex max-w-3xl flex-col gap-6">
+            <h1 className="type-display text-[clamp(44px,6vw,112px)]">
               {phase === 'joined' ? 'Telefon on ühendatud.' : 'Skaneeri ja helista.'}
             </h1>
             <p className="text-[clamp(18px,1.8vw,30px)] leading-snug text-muted">
@@ -214,27 +215,22 @@ export function HostView({ scenario }: { scenario: PublicScenario }) {
                 ? 'Vajuta telefonis „Alusta“. Video algab siin ekraanil.'
                 : 'Ava telefoni kaamera ja skaneeri kood. Vaata siit ekraanilt, mis juhtub, ja kutsu telefoniga abi.'}
             </p>
-            <button
-              type="button"
-              onClick={() => setSound((v) => !v)}
-              aria-pressed={sound}
-              className={cx(
-                'gr-press flex h-14 w-fit items-center gap-3 rounded-full px-7 text-lg font-semibold',
-                sound ? 'bg-surface-2 text-fg' : 'bg-primary text-primary-fg hover:opacity-[0.88]',
-              )}
-            >
-              {sound ? 'Heli on sees' : 'Lülita video heli sisse'}
-            </button>
             {!roomsConfigured() ? <p className="text-lg text-danger">Sünkroon ei ole seadistatud (NEXT_PUBLIC_SUPABASE_URL ja NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY).</p> : null}
           </div>
-          <div className="gr-enter flex flex-col items-center gap-5">
+          {/* QR-kood ja toa kood ühe ploki ja ühe laiusega, et kõik jooneks ühte. */}
+          <div className="gr-enter mx-auto flex w-[min(56vh,480px)] flex-col gap-5 lg:mx-0">
             <div
-              className={cx('gr-motion aspect-square w-full max-w-[min(46vh,520px)] rounded-shell bg-white p-5 [&>svg]:size-full', phase === 'joined' && 'opacity-30')}
+              className={cx('gr-motion aspect-square w-full rounded-shell bg-white p-[6%] [&>svg]:size-full', phase === 'joined' && 'opacity-30')}
               aria-label="QR-kood telefoniga liitumiseks"
               dangerouslySetInnerHTML={{ __html: qr }}
             />
-            <p className="text-[clamp(28px,3vw,52px)] font-semibold leading-none tracking-[0.18em] tabular-nums">{code}</p>
-            <p className="max-w-full break-all text-center text-sm text-subtle">{joinUrl}</p>
+            <div className="flex items-baseline justify-between gap-4">
+              <p className="type-label text-subtle">Kood</p>
+              <p className="-mr-[0.2em] text-[clamp(28px,3vw,48px)] font-extrabold leading-none tracking-[0.2em]">{code}</p>
+            </div>
+            <p className="truncate text-sm text-subtle" title={joinUrl}>
+              {joinUrl.replace(/^https?:\/\//, '')}
+            </p>
           </div>
         </main>
       )}
@@ -266,6 +262,18 @@ function HostClip({ src, loop, active, volume, onEnded }: { src: string; loop: b
     if (!v) return;
     v.muted = volume === 0 || !active;
     v.volume = Math.max(0, Math.min(1, volume));
+    if (volume === 0 || !active) return;
+    // Kui brauser ei lubanud heliga alustada (video mängib vaikselt), tule heli sisse esimese klõpsu või klahviga.
+    const unmute = () => {
+      v.muted = false;
+      void v.play().catch(() => undefined);
+    };
+    window.addEventListener('pointerdown', unmute, { once: true });
+    window.addEventListener('keydown', unmute, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', unmute);
+      window.removeEventListener('keydown', unmute);
+    };
   }, [volume, active]);
   return (
     <video
