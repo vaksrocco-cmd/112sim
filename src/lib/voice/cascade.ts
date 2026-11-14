@@ -18,6 +18,13 @@ type Emotion = 'calm' | 'firm' | 'urgent';
 const TAGS: Record<string, Emotion> = { rahulik: 'calm', kindel: 'firm', tungiv: 'urgent' };
 const VOLUME: Record<Emotion, number> = { calm: 1, firm: 1.35, urgent: 1.8 };
 
+/** Üldised Eesti kohanimed voogtuvastusele (MITTE stsenaariumi tõde: väljamõeldud tänavanime siin ei ole). */
+const LIVE_KEYTERMS = [
+  'Tallinn', 'Tartu', 'Narva', 'Pärnu', 'Viljandi', 'Rakvere', 'Maardu', 'Kuressaare', 'Haapsalu', 'Keila', 'Saue', 'Saku', 'Jüri', 'Tabasalu',
+  'Viimsi', 'Viimsi vald', 'Haabneeme', 'Pringi', 'Püünsi', 'Rohuneeme', 'Leppneeme', 'Tammneeme', 'Randvere', 'Miiduranna', 'Pärnamäe', 'Lubja',
+  'Muuga', 'Pirita', 'Merivälja', 'Lasnamäe', 'Mustamäe', 'Kristiine', 'Nõmme', 'Harjumaa', 'teadvusel', 'hingab', 'suunurk', 'kiirabi',
+];
+
 type Msg = { role: 'user' | 'assistant'; content: string };
 type TurnLine =
   | { type: 'text'; delta: string }
@@ -48,6 +55,13 @@ export function createCascadeVoice(): VoiceProvider {
   let audioCtx: AudioContext | null = null;
   let vadTimer: ReturnType<typeof setInterval> | null = null;
   let recorder: MediaRecorder | null = null;
+  /** Voogtuvastus (ElevenLabs Scribe Realtime). Kui see töötab, MediaRecorderit ja tükkidena saatmist ei kasutata. */
+  let live: WebSocket | null = null;
+  let liveNode: ScriptProcessorNode | null = null;
+  /** Eraldi 16 kHz AudioContext mikrofoni jaoks (brauser teeb ümberdiskreetimise). */
+  let captureCtx: AudioContext | null = null;
+  /** Kas helistaja räägib praegu üle päästekorraldaja (siis lastakse mikrofoni heli tuvastusse ka kõne ajal). */
+  let bargeIn = false;
   let turnAbort: AbortController | null = null;
 
   const id = () => `c-${++seq}`;
@@ -242,9 +256,12 @@ export function createCascadeVoice(): VoiceProvider {
     }
   }
 
-  function callerSaid(text: string, startMs: CallMs, endMs: CallMs) {
+  /** `alt` on teise tuvastaja variant samast lausest: päästekorraldaja näeb mõlemat ja valib mõistlikuma tõlgenduse. */
+  function callerSaid(text: string, startMs: CallMs, endMs: CallMs, alt?: string) {
     if (stopped || !text.trim()) return;
-    messages.push({ role: 'user', content: text.trim() });
+    const same = (a: string, b: string) => a.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '') === b.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+    const note = alt && alt.trim() && !same(alt, text) ? `\n[kõnetuvastuse teine variant: ${alt.trim()}]` : '';
+    messages.push({ role: 'user', content: text.trim() + note });
     emit({ speaker: 'caller', text: text.trim(), startMs, endMs });
     void runTurn();
   }
@@ -287,10 +304,205 @@ export function createCascadeVoice(): VoiceProvider {
 
   /** Lõpeta käimasolev salvestus (kui `utterance` on antud, saada see tuvastusse) ja alusta uut. */
   function restartRecorder(utterance?: { startMs: CallMs; endMs: CallMs }) {
-    if (!stream || stopped) return;
+    if (!stream || stopped || live) return;
     pendingUtterance = utterance ?? null;
     if (recorder && recorder.state !== 'inactive') recorder.stop();
     startRecorder();
+  }
+
+  // ───────── Voogtuvastus ─────────
+  // Mikrofoni heli läheb pidevalt (16 kHz PCM) ElevenLabsi; tekst tekib rääkimise ajal ja lause lõpu otsustab server.
+  // See on töökindlam kui heli ise tükkideks lõikamine: lause algus ega lõpp ei lähe kaduma ja mudel näeb eelnevat konteksti.
+  async function startLive(): Promise<boolean> {
+    if (!stream || !audioCtx) return false;
+    try {
+      const res = await fetch('/api/voice/stt-token', { method: 'POST' });
+      if (!res.ok) return false;
+      const { token, model } = (await res.json()) as { token: string; model: string };
+      const q = new URLSearchParams({
+        model_id: model,
+        token,
+        audio_format: 'pcm_16000',
+        language_code: 'et',
+        commit_strategy: 'vad',
+        vad_silence_threshold_secs: '0.7',
+      });
+      for (const k of LIVE_KEYTERMS) q.append('keyterms', k);
+      const ws = new WebSocket(`wss://api.elevenlabs.io/v1/speech-to-text/realtime?${q}`);
+
+      const ready = await new Promise<boolean>((resolve) => {
+        const t = setTimeout(() => resolve(false), 4000);
+        ws.onopen = () => {
+          clearTimeout(t);
+          resolve(true);
+        };
+        ws.onerror = () => {
+          clearTimeout(t);
+          resolve(false);
+        };
+      });
+      if (!ready || stopped) {
+        ws.close();
+        return false;
+      }
+
+      // Viimase ~45 s heli (16 kHz PCM16), et lõpetatud lause saaks täpsema mudeliga üle kirjutada.
+      const ring: Int16Array[] = [];
+      let ringStart = 0; // esimese alles oleva tüki alguse järjekorranumber (sämplites)
+      let total = 0;
+      const RATE = 16000;
+      const slice = (from: number): Int16Array => {
+        const out = new Int16Array(Math.max(0, total - Math.max(from, ringStart)));
+        let pos = ringStart;
+        let o = 0;
+        for (const c of ring) {
+          const skip = Math.max(0, Math.max(from, ringStart) - pos);
+          if (skip < c.length) {
+            out.set(c.subarray(skip), o);
+            o += c.length - skip;
+          }
+          pos += c.length;
+        }
+        return out;
+      };
+      const wav = (pcm: Int16Array): Blob => {
+        const h = new DataView(new ArrayBuffer(44));
+        const put = (o: number, t: string) => [...t].forEach((ch, i) => h.setUint8(o + i, ch.charCodeAt(0)));
+        put(0, 'RIFF');
+        h.setUint32(4, 36 + pcm.byteLength, true);
+        put(8, 'WAVEfmt ');
+        h.setUint32(16, 16, true);
+        h.setUint16(20, 1, true);
+        h.setUint16(22, 1, true);
+        h.setUint32(24, RATE, true);
+        h.setUint32(28, RATE * 2, true);
+        h.setUint16(32, 2, true);
+        h.setUint16(34, 16, true);
+        put(36, 'data');
+        h.setUint32(40, pcm.byteLength, true);
+        return new Blob([h.buffer, pcm.buffer as ArrayBuffer], { type: 'audio/wav' });
+      };
+
+      let pending = ''; // voomudeli lõpetatud laused, mis ootavad, kas helistaja jätkab
+      let startMs: CallMs | null = null;
+      let startSample = 0;
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      let precise: Promise<string | null> | null = null;
+      let preciseAbort: AbortController | null = null;
+
+      /** Täpne tuvastus sama heli pealt (ElevenLabs Scribe, mitte voomudel). Alustatakse kohe lause lõppedes. */
+      const startPrecise = () => {
+        preciseAbort?.abort();
+        const ctrl = new AbortController();
+        preciseAbort = ctrl;
+        const form = new FormData();
+        form.append('audio', wav(slice(startSample)), 'speech.wav');
+        precise = fetch('/api/voice/stt', { method: 'POST', body: form, signal: ctrl.signal })
+          .then(async (r) => (r.ok ? ((await r.json()) as { text?: string }).text?.trim() || null : null))
+          .catch(() => null);
+      };
+
+      const finish = async () => {
+        timer = null;
+        const rough = pending.trim();
+        const s = startMs ?? now();
+        const p = precise;
+        pending = '';
+        startMs = null;
+        precise = null;
+        // Oota täpset teksti kuni 2,5 s; kui see ei jõua, kasuta voomudeli teksti (kõne ei tohi toppama jääda).
+        const better = p ? await Promise.race([p, new Promise<null>((r) => setTimeout(() => r(null), 2500))]) : null;
+        const text = better && /[\p{L}\p{N}]/u.test(better) ? better : rough;
+        if (stopped) return;
+        if (/[\p{L}\p{N}]/u.test(text)) callerSaid(text, s, now(), text === rough ? undefined : rough);
+        else ev?.onPartial?.('caller', '');
+      };
+
+      ws.onmessage = (e) => {
+        let m: { message_type?: string; text?: string; error?: string };
+        try {
+          m = JSON.parse(String(e.data));
+        } catch {
+          return;
+        }
+        const text = (m.text ?? '').trim();
+        const begin = () => {
+          if (startMs !== null) return;
+          startMs = Math.max(0, now() - 800);
+          startSample = Math.max(ringStart, total - Math.round(RATE * 1.5)); // 1,5 s varu, et lause algus jääks sisse
+        };
+        if (m.message_type === 'partial_transcript') {
+          if (!text) return;
+          begin();
+          if (timer) {
+            clearTimeout(timer); // helistaja jätkas: ära veel vasta
+            timer = null;
+          }
+          ev?.onPartial?.('caller', `${pending} ${text}`.trim());
+        } else if (m.message_type === 'committed_transcript' || m.message_type === 'committed_transcript_with_timestamps') {
+          if (!text) return;
+          begin();
+          pending = `${pending} ${text}`.trim();
+          ev?.onPartial?.('caller', pending);
+          startPrecise();
+          if (timer) clearTimeout(timer);
+          timer = setTimeout(() => void finish(), 450); // kui kohe tuleb järgmine lause, liidetakse need üheks
+        } else if (m.message_type && m.message_type !== 'session_started' && m.message_type !== 'warning') {
+          // quota_exceeded, auth_error, rate_limited, ...: mine üle varuvariandile (tükkidena saatmine).
+          console.warn('[voice] voogtuvastuse viga', m.message_type, m.error);
+          ws.close();
+        }
+      };
+      ws.onclose = () => {
+        if (live !== ws) return;
+        live = null;
+        liveNode?.disconnect();
+        liveNode = null;
+        if (!stopped) startRecorder(); // varu: MediaRecorder + /api/voice/stt
+      };
+
+      // Mikrofon -> 16 kHz PCM16 -> base64 tükid. Eelistame eraldi 16 kHz AudioContexti: siis teeb ümberdiskreetimise
+      // brauser (korraliku filtriga). Kui seda ei saa, keskmistame ise.
+      const ctx = captureCtx && captureCtx.state !== 'closed' ? captureCtx : audioCtx;
+      if (ctx.state !== 'running') await ctx.resume().catch(() => undefined);
+      const src = ctx.createMediaStreamSource(stream);
+      const node = ctx.createScriptProcessor(4096, 1, 1);
+      const mute = ctx.createGain();
+      mute.gain.value = 0;
+      const ratio = ctx.sampleRate / RATE;
+      node.onaudioprocess = (e) => {
+        const input = e.inputBuffer.getChannelData(0);
+        const out = new Int16Array(Math.floor(input.length / ratio));
+        // Kui päästekorraldaja räägib, saadetakse vaikust (muidu tuvastataks kõlarist kostev hääl helistaja jutuna),
+        // välja arvatud siis, kui helistaja räägib selgelt vahele.
+        if (!(speaking && !bargeIn)) {
+          for (let i = 0; i < out.length; i++) {
+            const a = Math.floor(i * ratio);
+            const b = Math.min(input.length, Math.max(a + 1, Math.floor((i + 1) * ratio)));
+            let sum = 0;
+            for (let j = a; j < b; j++) sum += input[j];
+            const v = Math.max(-1, Math.min(1, sum / (b - a)));
+            out[i] = v < 0 ? v * 0x8000 : v * 0x7fff;
+          }
+        }
+        ring.push(out);
+        total += out.length;
+        while (ring.length && total - ringStart > RATE * 45) ringStart += ring.shift()!.length;
+        if (ws.readyState !== WebSocket.OPEN) return;
+        const bytes = new Uint8Array(out.buffer);
+        let bin = '';
+        for (let i = 0; i < bytes.length; i += 0x2000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x2000));
+        ws.send(JSON.stringify({ message_type: 'input_audio_chunk', audio_base_64: btoa(bin), commit: false, sample_rate: RATE }));
+      };
+      src.connect(node);
+      node.connect(mute).connect(ctx.destination); // ScriptProcessor töötab ainult siis, kui see on väljundiga ühendatud
+      live = ws;
+      liveNode = node;
+      return true;
+    } catch (e) {
+      console.warn('[voice] voogtuvastus ei käivitunud', e);
+      return false;
+    }
   }
 
   function startVad() {
@@ -325,6 +537,7 @@ export function createCascadeVoice(): VoiceProvider {
           speechStart = Math.max(0, now() - loudMs);
           if (speaking) {
             // Vahelerääkimine: päästekorraldaja jääb vait ja pooleliolev vastus katkestatakse.
+            bargeIn = true;
             cancelSpeech();
             turnAbort?.abort();
           }
@@ -337,8 +550,9 @@ export function createCascadeVoice(): VoiceProvider {
       if (inSpeech && (quietMs >= SILENCE_END_MS || now() - speechStart >= MAX_UTTERANCE_MS)) {
         inSpeech = false;
         loudMs = 0;
+        bargeIn = false;
         restartRecorder({ startMs: speechStart, endMs: Math.max(speechStart, now() - quietMs) });
-      } else if (!inSpeech && !loudMs && performance.now() - recorderStartedAt > IDLE_RESTART_MS) {
+      } else if (!live && !inSpeech && !loudMs && performance.now() - recorderStartedAt > IDLE_RESTART_MS) {
         restartRecorder();
       }
     }, TICK_MS);
@@ -358,6 +572,12 @@ export function createCascadeVoice(): VoiceProvider {
         const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
         audioCtx = new Ctx();
         void audioCtx.resume();
+        try {
+          captureCtx = new Ctx({ sampleRate: 16000 });
+          void captureCtx.resume();
+        } catch {
+          captureCtx = null;
+        }
         const comp = audioCtx.createDynamicsCompressor();
         comp.connect(audioCtx.destination);
         output = comp;
@@ -398,8 +618,11 @@ export function createCascadeVoice(): VoiceProvider {
         stream = await navigator.mediaDevices.getUserMedia({
           audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
         });
-        startRecorder();
         startVad();
+        // Esimene valik on voogtuvastus; kui see ei käivitu, lõigatakse heli tükkideks ja saadetakse /api/voice/stt-le.
+        void startLive().then((ok) => {
+          if (!ok && !stopped && !live) startRecorder();
+        });
       } catch {
         // Kõne jätkub tekstirežiimis: demo ei tohi mikrofoni taha jääda.
         stream = null;
@@ -434,10 +657,17 @@ export function createCascadeVoice(): VoiceProvider {
       pendingUtterance = null;
       if (recorder && recorder.state !== 'inactive') recorder.stop();
       recorder = null;
+      const ws = live;
+      live = null;
+      ws?.close();
+      liveNode?.disconnect();
+      liveNode = null;
       stream?.getTracks().forEach((t) => t.stop());
       stream = null;
       keepAlive?.pause();
       keepAlive = null;
+      await captureCtx?.close().catch(() => undefined);
+      captureCtx = null;
       await audioCtx?.close().catch(() => undefined);
       audioCtx = null;
       output = null;
