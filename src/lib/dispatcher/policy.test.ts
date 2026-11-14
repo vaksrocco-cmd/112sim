@@ -239,4 +239,27 @@ describe('dispatcher policy', () => {
     expect(f.what).not.toBeNull();
     expect(fallbackUnderstanding('Jah, õige.').confirmation).toBe('yes');
   });
+
+  it('short demo: what -> where -> when -> what to do and wait, then the call ends', () => {
+    const wl = [...whitelist, 'Ärge andke talle süüa, juua ega ravimeid.'];
+    const m: Move[] = [];
+    let state = emptyCallState();
+    for (const step of [{ what: 'vanaema räägib segaselt' }, { street: 'Männikäbi tee', house: '14', settlement: 'Haabneeme' }, {}] as Partial<Understanding>[]) {
+      const move = nextMove(state, u(step), { whitelist: wl, short: true });
+      m.push(move);
+      state = move.state;
+    }
+    expect(m[0].say).toBe('Kus see toimub?');
+    expect(m[1].dispatch?.address).toBe('Männikäbi tee 14, Haabneeme');
+    expect(m[1].say).toBe('Saadan kiirabi aadressile Männikäbi tee 14, Haabneeme. Millal see algas?');
+    expect(m[2].say).toBe('Ärge andke talle süüa, juua ega ravimeid. Tehke välisuks lahti, et kiirabi saaks sisse. Abi on teel. Püsige tema juures, kuni kiirabi kohale jõuab.');
+    expect(m[2].endCall).toBe(true);
+    // Poolik aadress: küsib puuduva osa juurde, abi ei lähe enne teele.
+    const part = nextMove(m[0].state, u({ street: 'Männikäbi tee', house: '14' }), { whitelist: wl, short: true });
+    expect(part.say).toBe('Mis linnas või asulas see on?');
+    expect(part.dispatch).toBeUndefined();
+    // Kõik esimeses lauses: kohe abi teele ja järgmine küsimus.
+    const all = nextMove(emptyCallState(), u({ what: 'x', street: 'A tee', house: '1', settlement: 'B' }), { whitelist: wl, short: true });
+    expect(all.say).toBe('Saadan kiirabi aadressile A tee 1, B. Millal see algas?');
+  });
 });

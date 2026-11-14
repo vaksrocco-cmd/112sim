@@ -18,6 +18,8 @@ const Body = z.object({
   cue: z.boolean().optional(),
   /** Helistaja vaikib: päästekorraldaja võtab ise jutujärje. */
   idle: z.boolean().optional(),
+  /** Lühike demo (umbes 30 s): mis juhtus -> kus -> millal -> mida teha. */
+  short: z.boolean().optional(),
 });
 
 export async function POST(req: Request) {
@@ -27,9 +29,9 @@ export async function POST(req: Request) {
   if (!scenario) return new Response('unknown_scenario', { status: 400 });
 
   const state: CallState = { ...emptyCallState(), ...(parsed.data.state as Partial<CallState> | undefined) };
-  const { cue, idle, callerText, lastDispatcherLine } = parsed.data;
+  const { cue, idle, short, callerText, lastDispatcherLine } = parsed.data;
   const u = cue || idle || !callerText?.trim() ? NO_UNDERSTANDING : await understand({ state, lastDispatcherLine: lastDispatcherLine ?? '', callerText });
-  const move = nextMove(state, u, { whitelist: scenario.dispatcherWhitelist, cue, idle });
+  const move = nextMove(state, u, { whitelist: scenario.dispatcherWhitelist, cue, idle, short });
 
   const lines: unknown[] = [];
   if (move.dispatch) lines.push({ type: 'tool', name: 'dispatch_ambulance', input: { priority: 'A', address: move.dispatch.address, summary: move.dispatch.summary } });

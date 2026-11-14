@@ -205,6 +205,10 @@ const L = {
   stillConscious: ['Kas ta on endiselt teadvusel?', 'Kas ta reageerib teile endiselt?'],
   stillBreathing: ['Kas ta hingab endiselt normaalselt?', 'Kas ta hingab endiselt?'],
   closing: 'Kiirabi on kohal. Aitäh, et jäite liinile. Võime kõne lõpetada.',
+  // Lühike demo (vt demoMove): viimane voor.
+  demoWhere: 'Kus see toimub?',
+  demoOnset: 'Millal see algas?',
+  demoWait: ['Abi on teel.', 'Püsige tema juures, kuni kiirabi kohale jõuab.'],
 } as const;
 
 // Juhised, mida päästekorraldaja annab. KÕIK peavad olema stsenaariumi lubatud loendis (dispatcherWhitelist):
@@ -245,7 +249,8 @@ function variant(list: readonly string[], n: number): string {
  * @param idle       helistaja on vaikinud: päästekorraldaja võtab ise jutujärje (kontrollib, juhendab, kinnitab).
  * @param whitelist  stsenaariumi lubatud juhised (ainult neid tohib anda).
  */
-export function nextMove(prev: CallState, u: Understanding, opts: { whitelist: string[]; cue?: boolean; idle?: boolean }): Move {
+export function nextMove(prev: CallState, u: Understanding, opts: { whitelist: string[]; cue?: boolean; idle?: boolean; short?: boolean }): Move {
+  if (opts.short && !opts.cue) return demoMove(prev, u, opts);
   // 7. Lõpetamine: selge märguanne.
   if (opts.cue) {
     return { say: L.closing, emotion: 'rahulik', endCall: true, state: { ...prev, lastTopic: 'closing' } };
@@ -468,4 +473,62 @@ function guideStep(s: CallState, whitelist: string[], lastLine: string | null, w
   let pick = loop[n % loop.length];
   if (pick.say === lastLine) pick = loop[(n + 1) % loop.length];
   return { ...pick, key: 'g:loop' };
+}
+
+/**
+ * LÜHIKE DEMO (umbes 30 sekundit), kindel käik:
+ *   1) mis juhtus  2) kus see toimub  3) millal see algas  4) mida teha ja oodata kiirabi saabumiseni -> kõne lõpeb.
+ * Päästekorraldaja kuulab vastuseid päriselt: aadress, mille ta abi saates ütleb, on see, mille helistaja ütles, ja poolikut
+ * aadressi küsib ta osade kaupa juurde. Juhised tulevad ainult stsenaariumi lubatud loendist.
+ */
+function demoMove(prev: CallState, u: Understanding, opts: { whitelist: string[]; idle?: boolean }): Move {
+  const s = applyUnderstanding(prev, u);
+  const parts: string[] = [];
+  let dispatch: Move['dispatch'];
+  const ask = (topic: string, list: readonly string[], emotion: Emotion = 'rahulik'): Move => {
+    const n = s.asked[topic] ?? 0;
+    let line = variant(list, n);
+    if (line === prev.lastQuestion) line = variant(list, n + 1);
+    if (opts.idle && n % 2 === 0) parts.push(L.hear);
+    s.asked[topic] = n + 1;
+    s.lastTopic = topic;
+    s.lastQuestion = line;
+    return finish(s, [...parts, line], dispatch, n >= 2 ? 'kindel' : emotion);
+  };
+
+  if (u.intent === 'agitated') parts.push(L.calm[0]);
+  else if (u.intent === 'asks_eta' && !locationComplete(s)) parts.push(L.etaNotYet);
+
+  // 1) Mis juhtus (kuni kaks korda; siis edasi, et demo ei jääks kinni).
+  if (!s.what && (s.asked.what ?? 0) < 2) return ask('what', L.what);
+
+  // 2) Kus see toimub: puuduvat osa küsitakse eraldi.
+  if (!locationComplete(s)) {
+    if (u.unheard !== 'none') {
+      const line = L.unheard[u.unheard];
+      s.lastTopic = `location:${u.unheard}`;
+      s.lastQuestion = line;
+      return finish(s, [...parts, line], dispatch, 'rahulik');
+    }
+    if (!s.street && !s.house && !s.settlement) return ask('location:all', [L.demoWhere, L.locationOpen, L.landmark]);
+    if (!s.settlement) return ask('location:settlement', L.settlement);
+    if (!s.street) return ask('location:street', L.street);
+    return ask('location:house', L.house);
+  }
+
+  // Koht on teada: abi läheb kohe teele ja päästekorraldaja ütleb aadressi, mille ta kuulis.
+  if (!s.dispatched) {
+    s.dispatched = true;
+    dispatch = { address: fullAddress(s), summary: s.what ?? 'juhtunu täpsustamata' };
+    parts.push(`Saadan kiirabi aadressile ${fullAddress(s)}.`);
+  }
+
+  // 3) Millal see algas (üks kord).
+  if ((s.asked.onset ?? 0) < 1) return ask('onset', [L.demoOnset]);
+
+  // 4) Mida teha ja oodata kiirabi saabumiseni. Kõne lõpeb siin.
+  const todo = [I.noFood, I.door].filter((line) => opts.whitelist.includes(line));
+  s.lastTopic = 'closing';
+  s.lastQuestion = null;
+  return { ...finish(s, [...parts, ...todo, ...L.demoWait], dispatch, 'rahulik'), endCall: true };
 }
