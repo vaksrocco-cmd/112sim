@@ -39,6 +39,43 @@ export function computeTimes(session: CallSession, scenario: PublicScenario): An
   };
 }
 
+const wordCount = (t: string) => t.trim().split(/\s+/).filter(Boolean).length;
+
+export function callerWords(session: CallSession): number {
+  return session.transcript.filter((s) => s.speaker === 'caller').reduce((n, s) => n + wordCount(s.text), 0);
+}
+
+/**
+ * Küsimused ja vastused transkriptist: küsimus on päästekorraldaja lause, milles on küsimärk; vastatud on see siis,
+ * kui helistaja ütles midagi enne järgmist päästekorraldaja lauset. Küsimust, millele ei jäänud aega vastata
+ * (kõne lõppes või päästekorraldaja rääkis kohe edasi), ei loeta. Kui transkripti pole, tagastab null.
+ */
+export function questionStats(session: CallSession): { asked: number; answered: number } | null {
+  const t = session.transcript;
+  if (!t.some((s) => s.speaker === 'dispatcher')) return null;
+  let asked = 0;
+  let answered = 0;
+  t.forEach((seg, i) => {
+    if (seg.speaker !== 'dispatcher' || !seg.text.includes('?')) return;
+    const next = t[i + 1];
+    if (next?.speaker === 'caller') {
+      asked++;
+      if (wordCount(next.text) > 0) answered++;
+      return;
+    }
+    const roomToAnswer = (next ? next.startMs : session.durationMs) - seg.endMs;
+    if (roomToAnswer >= 4000) asked++;
+  });
+  return { asked, answered };
+}
+
+/** Lõppskoor 0–100. Read, mida ei saanud hinnata, jäävad arvestusest välja (ei anna ega võta punkte). */
+export function totalScore(rubric: RubricItemResult[]): number {
+  const rated = rubric.filter((r) => !r.notApplicable);
+  const max = rated.reduce((n, r) => n + r.maxPoints, 0);
+  return max ? Math.round((100 * rated.reduce((n, r) => n + r.points, 0)) / max) : 0;
+}
+
 export function scoreSession(session: CallSession, scenario: PublicScenario): RubricItemResult[] {
   const f = session.finalFacts;
   const row = (id: RubricItemResult['id'], points: number, why: string, extra: Partial<RubricItemResult> = {}) => {
@@ -77,7 +114,7 @@ export function scoreSession(session: CallSession, scenario: PublicScenario): Ru
     'patient',
     (consciousKnown ? 5 : 0) + (breathingKnown ? 5 : 0) + (kinds >= 2 ? 5 : kinds === 1 ? 3 : 0),
     [
-      consciousKnown ? 'teadvus teada' : 'teadvus jäi teadmata',
+      consciousKnown ? 'Teadvus teada' : 'Teadvus jäi teadmata',
       breathingKnown ? 'hingamine teada' : 'hingamine jäi teadmata',
       `kirjeldatud sümptomeid: ${kinds}`,
     ].join('; ') + '.',
@@ -87,7 +124,7 @@ export function scoreSession(session: CallSession, scenario: PublicScenario): Ru
   // change
   const ch = firstChange(session, scenario);
   const change = !ch
-    ? row('change', 15, 'Olukord selle kõne ajal ei muutunud.', { notApplicable: true })
+    ? row('change', 0, 'Olukord selle kõne ajal ei muutunud.', { notApplicable: true })
     : ch.reactionMs === null
       ? row('change', 0, 'Olukord muutus, aga sa ei teatanud sellest.')
       : row(
@@ -97,18 +134,28 @@ export function scoreSession(session: CallSession, scenario: PublicScenario): Ru
           { atMs: ch.report?.atMs, evidence: ch.report?.quote },
         );
 
-  // answers, clarity
+  // answers, clarity: loetakse transkriptist. Kui pole, mida hinnata, siis rida ei anna punkte ega võta neid ära.
   const d = f.dialogue;
-  const answers = row(
-    'answers',
-    d.questionsAsked === 0 ? 10 : Math.round((10 * Math.min(d.questionsAnswered, d.questionsAsked)) / d.questionsAsked),
-    d.questionsAsked === 0 ? 'Küsimusi ei esitatud.' : `Vastasid ${Math.min(d.questionsAnswered, d.questionsAsked)} küsimusele ${d.questionsAsked}-st.`,
-  );
-  const clarity = row(
-    'clarity',
-    10 - 3 * d.contradictions - 2 * d.offTopicTurns,
-    d.contradictions + d.offTopicTurns === 0 ? 'Jutt oli selge ja asjakohane.' : `Vastuolusid: ${d.contradictions}; teemast mööda: ${d.offTopicTurns}.`,
-  );
+  const q = questionStats(session);
+  const asked = q ? q.asked : d.questionsAsked;
+  // Kohtunik loeb ainult asjakohaseid vastuseid; kui ta luges vähem kui transkriptist paistab, kehtib väiksem arv.
+  const judged = d.questionsAsked > 0 ? Math.min(d.questionsAnswered, d.questionsAsked) : Infinity;
+  const answered = q ? Math.min(q.answered, judged) : Math.min(d.questionsAnswered, d.questionsAsked);
+  const answers =
+    asked === 0
+      ? row('answers', 0, 'Päästekorraldaja ei jõudnud ühtegi küsimust esitada.', { notApplicable: true })
+      : row('answers', Math.round((10 * answered) / asked), `Vastasid ${answered} küsimusele ${asked}-st.`);
+  const words = callerWords(session);
+  const saidEnough = session.transcript.length ? words >= 6 : f.incident.said || f.location.level !== 'none';
+  const clarity = !saidEnough
+    ? row('clarity', 0, 'Sa rääkisid liiga vähe, et selgust hinnata.', { notApplicable: true })
+    : row(
+        'clarity',
+        10 - 3 * d.contradictions - 2 * d.offTopicTurns - 2 * f.location.wrongParts.length,
+        d.contradictions + d.offTopicTurns + f.location.wrongParts.length === 0
+          ? 'Jutt oli selge ja asjakohane.'
+          : `Vastuolusid: ${d.contradictions}; teemast mööda: ${d.offTopicTurns}; valesti öeldud aadressiosi: ${f.location.wrongParts.length}.`,
+      );
 
   // ending
   const ended = session.events.find((e) => e.type === 'call_ended');

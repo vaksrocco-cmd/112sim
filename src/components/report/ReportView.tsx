@@ -2,6 +2,8 @@
 import type { AnalysisReport, CallSession } from '@/lib/types';
 import { Badge, Card, Heading, Panel, Progress, Stack, Text } from '@/components/ui';
 import { formatMs } from '@/components/sim/format';
+import { CountUp } from './CountUp';
+import { FeedbackSteps, Tips } from './FeedbackSteps';
 
 const outcomeLabel = { good: 'Abi jõudis õigel ajal', delayed: 'Abi jõudis hilinemisega', bad: 'Abi ei jõudnud õigel ajal' } as const;
 
@@ -11,7 +13,10 @@ export function ReportView({ session, report }: { session: CallSession; report: 
     <Stack gap={4}>
       <Card>
         <Stack direction="row" align="between">
-          <Heading level={1}>{report.score}/100</Heading>
+          <Heading level={1}>
+            <CountUp value={report.score} />
+            /100
+          </Heading>
           <Badge tone={report.outcome === 'good' ? 'ok' : report.outcome === 'delayed' ? 'warn' : 'danger'}>
             {outcomeLabel[report.outcome]}
           </Badge>
@@ -20,19 +25,30 @@ export function ReportView({ session, report }: { session: CallSession; report: 
           Kõne kestus {formatMs(report.times.durationMs)}
           {report.times.locationMs != null ? ` · aadress teada ${formatMs(report.times.locationMs)}` : ''}
         </Text>
+        {report.summary ? <Text>{report.summary}</Text> : null}
       </Card>
 
-      <Panel title="Hindamine">
+      {report.steps?.length ? (
+        <Panel title="Sinu kõne õiges järjekorras">
+          <FeedbackSteps steps={report.steps} />
+        </Panel>
+      ) : null}
+
+      <Panel title="Järgmine kord">
+        <Tips tips={report.tips} from={report.steps?.length ?? 0} />
+      </Panel>
+
+      <Panel title="Punktid">
         <Stack gap={3}>
           {report.rubric.map((r) => (
             <div key={r.id}>
               <Stack direction="row" align="between">
                 <Text>{r.label}</Text>
-                <Text className="tabular-nums">
-                  {r.points}/{r.maxPoints}
+                <Text className="tabular-nums" tone={r.notApplicable ? 'muted' : undefined}>
+                  {r.notApplicable ? 'ei hinnatud' : `${r.points}/${r.maxPoints}`}
                 </Text>
               </Stack>
-              <Progress value={r.maxPoints ? r.points / r.maxPoints : 0} tone={r.points === r.maxPoints ? 'ok' : 'warn'} />
+              {r.notApplicable ? null : <Progress value={r.maxPoints ? r.points / r.maxPoints : 0} tone={r.points === r.maxPoints ? 'ok' : 'warn'} />}
               <Text size="sm" tone="muted">
                 {r.why}
               </Text>
@@ -53,12 +69,6 @@ export function ReportView({ session, report }: { session: CallSession; report: 
           ))}
         </Panel>
       ) : null}
-
-      <Panel title="Kolm nõuannet">
-        {report.tips.map((t) => (
-          <Text key={t}>{t}</Text>
-        ))}
-      </Panel>
 
       {report.whatWouldHaveHappened ? (
         <Panel title="Mis oleks juhtunud">

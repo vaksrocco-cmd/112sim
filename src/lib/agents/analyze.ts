@@ -4,16 +4,34 @@
 import { buildEndingText } from '../director/endings';
 import { computeOutcome } from '../director/outcome';
 import { llmJson } from '../llm';
-import type { AnalysisReport, CallSession, RubricId, RubricItemResult, Scenario } from '../types';
+import type { AnalysisReport, CallSession, FeedbackStepId, RubricId, RubricItemResult, Scenario } from '../types';
+import { buildSteps, stepTips } from './feedback';
 import { loadPrompt } from './prompts';
-import { computeTimes, scoreSession } from './scoring';
+import { computeTimes, scoreSession, totalScore } from './scoring';
 import { verifiedQuote } from './text';
 
 const RUBRIC_IDS: RubricId[] = ['incident', 'location', 'patient', 'change', 'answers', 'clarity', 'ending'];
 
+const STEP_IDS: FeedbackStepId[] = ['where', 'what', 'who', 'condition', 'when', 'change'];
+
 const SCHEMA = {
   type: 'object',
   properties: {
+    summary: { type: 'string' },
+    steps: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', enum: STEP_IDS },
+          quote: { type: ['string', 'null'] },
+          note: { type: 'string' },
+          example: { type: 'string' },
+        },
+        required: ['id', 'quote', 'note', 'example'],
+        additionalProperties: false,
+      },
+    },
     evidence: {
       type: 'array',
       items: {
@@ -27,11 +45,13 @@ const SCHEMA = {
     tips: { type: 'array', items: { type: 'string' } },
     whatWouldHaveHappened: { type: 'string' },
   },
-  required: ['evidence', 'missed', 'tips', 'whatWouldHaveHappened'],
+  required: ['summary', 'steps', 'evidence', 'missed', 'tips', 'whatWouldHaveHappened'],
   additionalProperties: false,
 };
 
 interface AnalystOutput {
+  summary: string;
+  steps: { id: FeedbackStepId; quote: string | null; note: string; example: string }[];
   evidence: { id: RubricId; quote: string | null }[];
   missed: string[];
   tips: string[];
@@ -59,14 +79,18 @@ export async function analyzeSession(session: CallSession, scenario: Scenario): 
   const result = computeOutcome(session.finalFacts, session.events, scenario, session.durationMs);
   const callerSegments = session.transcript.filter((s) => s.speaker === 'caller');
 
+  const steps = buildSteps(session, scenario).map((s) => ({ ...s, quote: verifiedQuote(s.quote, callerSegments) }));
+  const codeTips = [...stepTips(steps), ...fallbackTips(rubric)].filter((t, i, all) => all.indexOf(t) === i);
+
   const report: AnalysisReport = {
     sessionId: session.id,
-    score: rubric.reduce((s, r) => s + r.points, 0),
+    score: totalScore(rubric),
     outcome: result.outcome,
     times: computeTimes(session, scenario),
     rubric: rubric.map((r) => ({ ...r, evidence: verifiedQuote(r.evidence, callerSegments) })),
     missed: rubric.filter((r) => r.points === 0 && !r.notApplicable).map((r) => r.why).slice(0, 4),
-    tips: fallbackTips(rubric),
+    tips: [codeTips[0], codeTips[1], codeTips[2]],
+    steps,
     whatWouldHaveHappened: buildEndingText(result) || 'Kiirabi sai õige info õigel ajal ja jõudis kiiresti kohale.',
   };
 
@@ -84,6 +108,7 @@ export async function analyzeSession(session: CallSession, scenario: Scenario): 
             outcome: result.outcome,
             outcomeReasons: result.reasons,
             rubric: rubric.map(({ id, label, points, maxPoints, why, notApplicable }) => ({ id, label, points, maxPoints, why, notApplicable })),
+            steps: steps.map(({ id, label, status }) => ({ id, label, status })),
           }),
         },
       ],
@@ -97,8 +122,17 @@ export async function analyzeSession(session: CallSession, scenario: Scenario): 
     const clean = (s: unknown) => (typeof s === 'string' ? s.trim() : '');
     const quotes = new Map(out.evidence.map((e) => [e.id, verifiedQuote(e.quote, callerSegments)]));
     const tips = out.tips.map(clean).filter(Boolean);
+    const written = new Map(out.steps.map((s) => [s.id, s]));
     return {
       ...report,
+      summary: clean(out.summary) || undefined,
+      // Sammu oleku määras kood. LLM-ilt tuleb kontrollitud tsitaat ja tekst; "öeldud" sammule ei tohi LLM etteheidet kirjutada
+      // ega ütlemata sammule kiitust, seepärast võetakse tekst ainult siis, kui tsitaat ja olek klapivad.
+      steps: steps.map((s) => {
+        const w = written.get(s.id);
+        const quote = s.status === 'missing' ? undefined : (verifiedQuote(w?.quote, callerSegments) ?? s.quote);
+        return { ...s, quote, note: clean(w?.note) || s.note, example: clean(w?.example) || s.example };
+      }),
       // Punktid, ajad ja tulemus jäävad koodi omadeks; LLM-ilt tulevad ainult kontrollitud tsitaadid ja tekstid.
       rubric: report.rubric.map((r) => ({ ...r, evidence: quotes.get(r.id) ?? r.evidence })),
       missed: out.missed.map(clean).filter(Boolean).slice(0, 4),
