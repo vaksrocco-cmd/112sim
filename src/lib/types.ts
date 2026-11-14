@@ -13,6 +13,8 @@ export interface ScenarioState {
   id: string;                                   // 'INTRO' | 'S1' | ... | 'END_GOOD'
   kind: 'intro' | 'loop' | 'ending';
   clipUrl?: string;
+  /** Üleminekuklipp, mis mängib ÜKS kord, kui sellesse seisundisse jõutakse; seejärel algab `clipUrl` kordus. */
+  onsetClipUrl?: string;
   posterUrl?: string;
   caption: string;
   observable: string[];                         // SymptomDef.id-d, mida selles seisundis näha on

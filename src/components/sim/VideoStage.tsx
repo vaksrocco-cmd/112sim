@@ -1,36 +1,88 @@
 'use client';
 // LAVA (Aaron, feat/stage). KNOWLEDGE.md 9.4.
-// Suur pilt nagu videokõnes: klipp täidab kaardi, all on üks rida selle kohta, mida sa näed.
-// Klipp ilmub alles siis, kui see on laetud; kuni klippi pole, jääb alles tekst.
+// Näitab seisundi klippi täiskaadris (16:9, midagi ei lõigata ära). Kui seisundil on üleminekuklipp (`onsetClipUrl`),
+// mängib see üks kord ja alles siis algab kordus. Teiste seisundite klipid laetakse ette, et vahetus ei katkeks.
+// Kirjeldus („caption“) ilmub ainult siis, kui klippi ei õnnestu näidata: päris videoga peab muutust ise märkama.
 import type { ReactNode } from 'react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ScenarioState } from '@/lib/types';
 import { cx } from '@/components/ui/cx';
 
-export function VideoStage({ state, compact, children }: { state?: ScenarioState; compact?: boolean; children?: ReactNode }) {
+export function VideoStage({
+  state,
+  children,
+  preload = [],
+}: {
+  state?: ScenarioState;
+  compact?: boolean;
+  children?: ReactNode;
+  /** Kõik stsenaariumi seisundid: nende klipid laetakse taustal ette. */
+  preload?: ScenarioState[];
+}) {
+  const id = state?.id ?? '';
   const [failed, setFailed] = useState<Record<string, boolean>>({});
   const [loaded, setLoaded] = useState<Record<string, boolean>>({});
-  const id = state?.id ?? '';
+  // Üleminekuklipp mängib ainult siis, kui seisund vahetus kõne ajal (mitte esimesel kuvamisel).
+  const firstId = useRef(id);
+  const [onsetDone, setOnsetDone] = useState<Record<string, boolean>>({});
+  const loopRef = useRef<HTMLVideoElement>(null);
+
+  const showOnset = Boolean(state?.onsetClipUrl) && id !== firstId.current && !onsetDone[id];
   const wantVideo = Boolean(state?.clipUrl) && !failed[id];
+  const visible = wantVideo && (loaded[id] || showOnset);
+
+  // Kordus algab nullist kohe, kui üleminek lõpeb (üleminek lõpeb samas poosis, kus kordus algab).
+  useEffect(() => {
+    const v = loopRef.current;
+    if (!v) return;
+    if (showOnset) {
+      v.pause();
+    } else {
+      v.currentTime = 0;
+      void v.play().catch(() => undefined);
+    }
+  }, [showOnset, id]);
+
+  const others = preload.flatMap((s) => [s.clipUrl, s.onsetClipUrl]).filter((u): u is string => Boolean(u) && u !== state?.clipUrl && u !== state?.onsetClipUrl);
+
   return (
-    <div className={cx('relative w-full flex-none overflow-hidden rounded-shell bg-surface', compact ? 'h-[34dvh] min-h-[170px]' : 'h-[52dvh] min-h-[240px]')}>
+    <div className="relative aspect-video w-full flex-none overflow-hidden rounded-card bg-surface">
       {wantVideo && state ? (
         <video
           key={`clip-${id}`}
-          className={cx('gr-motion absolute inset-0 size-full object-cover', loaded[id] ? 'opacity-100' : 'opacity-0')}
+          ref={loopRef}
+          className={cx('gr-motion absolute inset-0 size-full object-cover', visible ? 'opacity-100' : 'opacity-0')}
           src={state.clipUrl}
-          autoPlay
+          poster={state.posterUrl}
           muted
           playsInline
+          preload="auto"
           loop={state.kind === 'loop'}
           onLoadedData={() => setLoaded((l) => ({ ...l, [id]: true }))}
           onError={() => setFailed((f) => ({ ...f, [id]: true }))}
         />
       ) : null}
-      {children ? <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-bg/80 to-transparent px-4 pb-8 pt-4">{children}</div> : null}
-      <p key={`caption-${id}`} className="gr-enter absolute inset-x-0 bottom-0 bg-gradient-to-t from-bg/90 to-transparent px-4 pb-4 pt-10 text-[15px] font-medium leading-5 text-fg">
-        {state?.caption ?? ''}
-      </p>
+      {showOnset && state ? (
+        <video
+          key={`onset-${id}`}
+          className="absolute inset-0 size-full object-cover"
+          src={state.onsetClipUrl}
+          autoPlay
+          muted
+          playsInline
+          onEnded={() => setOnsetDone((d) => ({ ...d, [id]: true }))}
+          onError={() => setOnsetDone((d) => ({ ...d, [id]: true }))}
+        />
+      ) : null}
+      {others.map((u) => (
+        <video key={u} src={u} preload="auto" muted playsInline className="hidden" aria-hidden />
+      ))}
+      {children ? <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-bg/85 to-transparent px-4 pb-8 pt-3">{children}</div> : null}
+      {!visible ? (
+        <p key={`caption-${id}`} className="gr-enter absolute inset-x-0 bottom-0 px-4 pb-4 text-[15px] font-medium leading-5 text-fg">
+          {state?.caption ?? ''}
+        </p>
+      ) : null}
     </div>
   );
 }

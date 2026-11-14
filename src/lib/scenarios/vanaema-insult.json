@@ -139,7 +139,8 @@
         "breathing": "yes"
       },
       "requiresReport": true,
-      "reportWindowMs": 30000
+      "reportWindowMs": 30000,
+      "onsetClipUrl": "/clips/vanaema/onset_s2.mp4"
     },
     {
       "id": "S3",
@@ -156,7 +157,8 @@
         "breathing": "yes"
       },
       "requiresReport": true,
-      "reportWindowMs": 20000
+      "reportWindowMs": 20000,
+      "onsetClipUrl": "/clips/vanaema/onset_s3.mp4"
     },
     {
       "id": "END_GOOD",

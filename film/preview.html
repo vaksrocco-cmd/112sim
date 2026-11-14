@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>112Sim film — preview</title>
+<style>
+  :root {
+    --bg: #15171a;
+    --panel: #1d2024;
+    --line: #2c3036;
+    --text: #e6e3dc;
+    --dim: #8d9299;
+    --accent: #e8a05a;
+    --ok: #7fbf8a;
+    --warn: #e2c064;
+    --bad: #e2726a;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: grid; grid-template-columns: minmax(0, 1fr) 360px; grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas: "head head" "stage rig" "transport rig";
+  }
+  button, select, input { font: inherit; color: inherit; }
+  button, select {
+    background: #272b31; border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; cursor: pointer;
+  }
+  button:hover, select:hover { border-color: #4a4f57; }
+  button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+
+  header {
+    grid-area: head; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel);
+  }
+  header h1 { font-size: 14px; font-weight: 600; margin: 0 6px 0 0; }
+  #info { color: var(--dim); }
+  #status { margin-left: auto; padding: 3px 9px; border-radius: 99px; border: 1px solid var(--line); cursor: default; }
+  #status.ok { color: var(--ok); }
+  #status.warn { color: var(--warn); }
+  #status.bad { color: var(--bad); }
+
+  #stage { grid-area: stage; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 16px; }
+  #frame { max-width: 100%; max-height: 100%; aspect-ratio: 16 / 9; background: #000; box-shadow: 0 6px 30px rgba(0, 0, 0, 0.5); }
+
+  #transport {
+    grid-area: transport; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 10px 16px; border-top: 1px solid var(--line); background: var(--panel);
+  }
+  #play { min-width: 74px; font-weight: 600; }
+  #scrub { flex: 1 1 240px; accent-color: var(--accent); }
+  #frameNo { width: 64px; background: #121417; border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; text-align: right; }
+  #transport label { display: inline-flex; align-items: center; gap: 5px; color: var(--dim); }
+  #readout { color: var(--dim); min-width: 190px; }
+
+  #rig { grid-area: rig; min-height: 0; display: flex; flex-direction: column; border-left: 1px solid var(--line); background: var(--panel); }
+  #rigHead { padding: 10px 14px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; }
+  #rigHead h2 { font-size: 13px; font-weight: 600; margin: 0; flex: 1; }
+  #rigNote { padding: 8px 14px; color: var(--dim); border-bottom: 1px solid var(--line); }
+  #params { overflow-y: auto; padding: 4px 14px 16px; }
+  .group { margin-top: 12px; color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .row { display: grid; grid-template-columns: 18px 112px minmax(0, 1fr) 54px; align-items: center; gap: 6px; padding: 3px 0; }
+  .row input[type="range"] { width: 100%; accent-color: var(--accent); }
+  .row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row .val { text-align: right; color: var(--dim); }
+  .row.on .name, .row.on .val { color: var(--accent); }
+  .row:not(.on) input[type="range"] { opacity: 0.55; }
+  #copied { color: var(--ok); visibility: hidden; }
+  #error { color: var(--bad); white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<header>
+  <h1>112Sim film preview</h1>
+  <label>Segment <select id="segment"></select></label>
+  <span id="info" class="mono"></span>
+  <span id="error"></span>
+  <span id="status" class="mono"></span>
+</header>
+
+<div id="stage"><canvas id="frame" width="1920" height="1080"></canvas></div>
+
+<div id="transport">
+  <button id="play" title="Space">Play</button>
+  <button id="back" title="Left arrow (Shift: 10 frames)">◀</button>
+  <button id="fwd" title="Right arrow (Shift: 10 frames)">▶</button>
+  <input id="scrub" type="range" min="0" max="0" step="1" value="0" aria-label="Frame">
+  <input id="frameNo" class="mono" type="number" min="0" step="1" value="0" aria-label="Frame number">
+  <span id="readout" class="mono"></span>
+  <label><input id="loop" type="checkbox" checked> Loop</label>
+  <label><input id="post" type="checkbox" checked> Post effects</label>
+</div>
+
+<aside id="rig">
+  <div id="rigHead">
+    <h2>Rig parameters</h2>
+    <span id="copied">Copied</span>
+    <button id="copy" title="Copy the ticked overrides as JSON">Copy</button>
+    <button id="reset">Reset all</button>
+  </div>
+  <div id="rigNote">Drag a slider to override that parameter on every frame. Untick it to follow the timeline again. R = her right = screen left.</div>
+  <div id="params"></div>
+</aside>
+
+<script type="module">
+  // Review and tuning tool. It draws with exactly the same code as the
+  // renderer (src/scene.js). Only the playback clock here uses real time;
+  // the frames themselves depend on nothing but (segment, frame, overrides).
+  import { createScene } from './src/scene.js';
+  import { RIG_PARAMS } from './src/rig/params.js';
+  import { FPS } from './src/config.js';
+
+  const $ = (id) => document.getElementById(id);
+  const scene = createScene($('frame'));
+
+  const state = {
+    segmentId: null,
+    frame: 0,
+    playing: false,
+    overrides: {}, // { param: value } for ticked rows only
+    last: null, // what the last renderFrame used
+  };
+  const rows = new Map();
+
+  function info() {
+    return scene.segmentInfo[state.segmentId];
+  }
+
+  function draw() {
+    try {
+      state.last = scene.renderFrame(state.segmentId, state.frame, {
+        overrides: state.overrides,
+        post: $('post').checked,
+      });
+      $('error').textContent = '';
+    } catch (e) {
+      $('error').textContent = e.message;
+      return;
+    }
+    const s = info();
+    $('scrub').value = state.frame;
+    if (document.activeElement !== $('frameNo')) $('frameNo').value = state.frame;
+    $('readout').textContent = `${(state.frame / FPS).toFixed(3)} s / ${s.durationS.toFixed(1)} s   frame ${state.frame} / ${s.frames - 1}`;
+    for (const [name, row] of rows) {
+      const value = state.last.params[name];
+      if (!(name in state.overrides)) row.slider.value = value;
+      row.val.textContent = row.format(value);
+    }
+  }
+
+  function setFrame(f) {
+    const max = info().frames - 1;
+    state.frame = Math.min(max, Math.max(0, Math.round(f)));
+    draw();
+  }
+
+  function setSegment(id) {
+    stop();
+    state.segmentId = id;
+    state.frame = 0;
+    const s = info();
+    $('scrub').max = s.frames - 1;
+    $('frameNo').max = s.frames - 1;
+    $('loop').checked = s.loop;
+    $('info').textContent = `${s.durationS} s · ${s.frames} frames · ${s.loop ? 'loop' : 'plays once'}` + (s.from || s.to ? ` · ${s.from || '—'} → ${s.to || '—'}` : '');
+    const check = scene.validateSegment(id);
+    const st = $('status');
+    st.className = 'mono ' + (!check.ok ? 'bad' : check.warnings.length ? 'warn' : 'ok');
+    st.textContent = !check.ok ? `${check.errors.length} check(s) failed` : check.warnings.length ? `checks pass · ${check.warnings.length} note(s)` : 'checks pass';
+    st.title = [...check.errors, ...check.warnings].join('\n');
+    draw();
+  }
+
+  // Playback clock: 30 fps in real time. If drawing is slower, frames are skipped.
+  let rafId = 0;
+  let playStartMs = 0;
+  let playStartFrame = 0;
+  function tick(nowMs) {
+    if (!state.playing) return;
+    const frames = info().frames;
+    let f = playStartFrame + Math.floor(((nowMs - playStartMs) / 1000) * FPS);
+    if (f >= frames) {
+      if ($('loop').checked) {
+        f %= frames;
+      } else {
+        setFrame(frames - 1);
+        stop();
+        return;
+      }
+    }
+    if (f !== state.frame) {
+      state.frame = f;
+      draw();
+    }
+    rafId = requestAnimationFrame(tick);
+  }
+  function play() {
+    if (state.playing) return;
+    if (state.frame >= info().frames - 1 && !$('loop').checked) state.frame = 0;
+    state.playing = true;
+    playStartFrame = state.frame;
+    playStartMs = performance.now();
+    $('play').textContent = 'Pause';
+    rafId = requestAnimationFrame(tick);
+  }
+  function stop() {
+    state.playing = false;
+    cancelAnimationFrame(rafId);
+    $('play').textContent = 'Play';
+  }
+
+  // Rig parameter sliders.
+  function buildParams() {
+    const host = $('params');
+    let group = null;
+    for (const p of RIG_PARAMS) {
+      if (p.group !== group) {
+        group = p.group;
+        const h = document.createElement('div');
+        h.className = 'group';
+        h.textContent = group;
+        host.append(h);
+      }
+      const step = p.step ?? (p.unit === '°' ? 0.5 : 0.01);
+      const digits = step >= 1 ? 0 : step >= 0.1 ? 1 : 2;
+      const format = (v) => v.toFixed(digits) + (p.unit || '');
+
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.title = [p.note, `${p.min} … ${p.max}${p.unit || ''}`, p.provisionalRange ? 'range is provisional until the rig is built' : '']
+        .filter(Boolean).join(' · ');
+
+      const tick = document.createElement('input');
+      tick.type = 'checkbox';
+      tick.setAttribute('aria-label', `Override ${p.name}`);
+      const name = document.createElement('span');
+      name.className = 'name mono';
+      name.textContent = p.name;
+      const slider = document.createElement('input');
+      slider.type = 'range';
+      slider.min = p.min;
+      slider.max = p.max;
+      slider.step = step;
+      slider.value = p.neutral;
+      slider.setAttribute('aria-label', p.name);
+      const val = document.createElement('span');
+      val.className = 'val mono';
+
+      const setOverride = (on) => {
+        if (on) state.overrides[p.name] = Number(slider.value);
+        else delete state.overrides[p.name];
+        tick.checked = on;
+        row.classList.toggle('on', on);
+      };
+      slider.addEventListener('input', () => { setOverride(true); draw(); });
+      tick.addEventListener('change', () => { setOverride(tick.checked); draw(); });
+
+      row.append(tick, name, slider, val);
+      host.append(row);
+      rows.set(p.name, { row, slider, val, format, setOverride });
+    }
+  }
+
+  $('reset').addEventListener('click', () => {
+    for (const r of rows.values()) r.setOverride(false);
+    draw();
+  });
+  $('copy').addEventListener('click', async () => {
+    const text = JSON.stringify(state.overrides, null, 2);
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      window.prompt('Copy the overrides:', text);
+    }
+    $('copied').style.visibility = 'visible';
+    setTimeout(() => { $('copied').style.visibility = 'hidden'; }, 1200);
+  });
+
+  // Transport.
+  $('play').addEventListener('click', () => (state.playing ? stop() : play()));
+  $('back').addEventListener('click', () => { stop(); setFrame(state.frame - 1); });
+  $('fwd').addEventListener('click', () => { stop(); setFrame(state.frame + 1); });
+  $('scrub').addEventListener('input', () => { stop(); setFrame(Number($('scrub').value)); });
+  $('frameNo').addEventListener('change', () => { stop(); setFrame(Number($('frameNo').value) || 0); });
+  $('post').addEventListener('change', draw);
+  $('segment').addEventListener('change', () => setSegment($('segment').value));
+  document.addEventListener('keydown', (e) => {
+    const tag = e.target.tagName;
+    if (tag === 'SELECT' || (tag === 'INPUT' && e.target.type !== 'checkbox')) return;
+    if (e.code === 'Space') { e.preventDefault(); state.playing ? stop() : play(); }
+    if (e.code === 'ArrowLeft') { e.preventDefault(); stop(); setFrame(state.frame - (e.shiftKey ? 10 : 1)); }
+    if (e.code === 'ArrowRight') { e.preventDefault(); stop(); setFrame(state.frame + (e.shiftKey ? 10 : 1)); }
+  });
+
+  // Start.
+  buildParams();
+  for (const id of Object.keys(scene.segmentInfo)) $('segment').append(new Option(id, id));
+  const wanted = new URLSearchParams(location.search).get('segment');
+  $('segment').value = wanted && scene.segmentInfo[wanted] ? wanted : Object.keys(scene.segmentInfo)[0];
+  setSegment($('segment').value);
+
+  // For debugging in the console.
+  window.preview = { state, scene, setFrame, setSegment, play, stop };
+</script>
+</body>
+</html>
