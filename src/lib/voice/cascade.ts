@@ -46,6 +46,25 @@ export function createCascadeVoice(): VoiceProvider {
   let callState: CallState | null = null;
   /** Kindlate lausete heli, kui see on juba alla laaditud. */
   const audioCache = new Map<string, Promise<ArrayBuffer | null>>();
+  /** Ette alustatud vooru päring: algab kohe, kui lause tundub lõppenud, et vastus oleks valmis, kui tekst on kinnitatud. */
+  let speculative: { text: string; res: Promise<Response | null>; ctrl: AbortController } | null = null;
+  const sameText = (a: string, b: string) => a.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '') === b.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+  const lastDispatcherLine = () => [...messages].reverse().find((m) => m.role === 'assistant')?.content ?? '';
+  function speculate(text: string) {
+    speculative?.ctrl.abort();
+    speculative = null;
+    // Ainult siis, kui eelmine sõnum ei ole vastamata helistaja lause (muidu liidetakse laused ja tekst muutub).
+    const prev = messages[messages.length - 1];
+    if (stopped || !text.trim() || (prev?.role === 'user' && !prev.content.startsWith('[SÜSTEEM]'))) return;
+    const ctrl = new AbortController();
+    const res = fetch('/api/voice/turn2', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ scenarioId, state: callState ?? undefined, lastDispatcherLine: lastDispatcherLine(), callerText: text.trim() }),
+      signal: ctrl.signal,
+    }).catch(() => null);
+    speculative = { text: text.trim(), res, ctrl };
+  }
   let seq = 0;
   const messages: Msg[] = [];
 
@@ -250,16 +269,22 @@ export function createCascadeVoice(): VoiceProvider {
       const cue = lastUser?.role === 'user' && lastUser.content.startsWith('[SÜSTEEM]');
       const post = (url: string, body: unknown) =>
         fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal: ctrl.signal });
-      let res = await post('/api/voice/turn2', {
-        scenarioId,
-        state: callState ?? undefined,
-        lastDispatcherLine: [...messages].reverse().find((m) => m.role === 'assistant')?.content ?? '',
-        callerText: cue ? undefined : lastUser?.content,
-        cue,
-      }).catch((e) => {
-        if (ctrl.signal.aborted) throw e;
-        return null;
-      });
+      // Kui sama teksti kohta on päring juba ette tehtud, kasuta selle vastust (säästab kuni sekundi).
+      const ready = !cue && speculative && lastUser && sameText(speculative.text, lastUser.content) ? speculative : null;
+      if (speculative && !ready) speculative.ctrl.abort();
+      speculative = null;
+      let res =
+        (ready ? await ready.res : null) ??
+        (await post('/api/voice/turn2', {
+          scenarioId,
+          state: callState ?? undefined,
+          lastDispatcherLine: lastDispatcherLine(),
+          callerText: cue ? undefined : lastUser?.content,
+          cue,
+        }).catch((e) => {
+          if (ctrl.signal.aborted) throw e;
+          return null;
+        }));
       if (!res?.ok || !res.body) res = await post('/api/voice/turn', { scenarioId, messages, dispatched });
       if (!res.ok || !res.body) throw new Error(`Päästekorraldaja ei vasta (${res.status})`);
       const reader = res.body.getReader();
@@ -495,6 +520,7 @@ export function createCascadeVoice(): VoiceProvider {
           commitSample = total;
           ev?.onPartial?.('caller', pending);
           startPrecise();
+          speculate(pending);
           if (timer) clearTimeout(timer);
           // Vasta kohe, kui lause tundub lõpetatud. Kui see lõpeb poolikult (koma, sidesõna, "ee"), oota veidi kauem,
           // et helistajat ei katkestataks mõttepausi ajal. Kui ta jätkab, liidetakse laused üheks.
