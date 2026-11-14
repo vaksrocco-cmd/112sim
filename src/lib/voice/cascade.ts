@@ -3,7 +3,8 @@
 //            -> /api/voice/turn2 (mudel mõistab, kood otsustab kindla lause) -> /api/voice/tts (TartuNLP) -> kõlar.
 // Kui mikrofoni ei lubata, töötab sama voog tekstirežiimis (sendCallerText).
 // Heli ei salvestata: iga lause läheb tuvastusse ja visatakse ära.
-import { GREETING, type CallState } from '../dispatcher/policy';
+import { ACKS, emptyCallState, GREETING, nextMove, NO_UNDERSTANDING, type CallState, type Move, type Understanding } from '../dispatcher/policy';
+import { quickUnderstanding } from '../dispatcher/quick';
 import type { CallMs, TranscriptSegment } from '../types';
 import staticLines from './lines.json';
 import type { DispatcherToolCall, VoiceEvents, VoiceProvider, VoiceStartOptions } from './VoiceProvider';
@@ -14,6 +15,8 @@ const TICK_MS = 50;
 const SPEECH_MIN_MS = 250; // nii kaua peab heli kestma, et see loeks kõneks
 const SILENCE_END_MS = 550; // nii pikk paus lõpetab lause
 const MAX_UTTERANCE_MS = 25000;
+/** Kui helistaja on nii kaua vait olnud, võtab päästekorraldaja ise jutujärje (kontrollib, juhendab, kinnitab). */
+const PROACTIVE_AFTER_MS = 9000;
 const IDLE_RESTART_MS = 6000; // vaikuses alusta salvestust uuesti, et lause ette ei jääks pikka tühja juppi
 
 /** Päästekorraldaja toon: mida ebamäärasem helistaja, seda kindlam ja valjem hääl. */
@@ -90,6 +93,28 @@ export function createCascadeVoice(): VoiceProvider {
   /** Kas helistaja räägib praegu üle päästekorraldaja (siis lastakse mikrofoni heli tuvastusse ka kõne ajal). */
   let bargeIn = false;
   let turnAbort: AbortController | null = null;
+  /** Stsenaariumi lubatud juhised: nendega saab telefon lihtsa vooru ise otsustada, ilma serverita. */
+  let whitelist: string[] | null = null;
+  /** Helistaja räägib parajasti (lause on pooleli): päästekorraldaja ei võta siis ise jutujärge. */
+  let callerTalking = false;
+  let turnRunning = false;
+  let idleTimer: ReturnType<typeof setTimeout> | null = null;
+  let ackCount = 0;
+  const clearIdle = () => {
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = null;
+  };
+  /** Käivita vaikuse taimer: kui keegi ei räägi, ütleb päästekorraldaja ise järgmise asja. */
+  const armIdle = () => {
+    clearIdle();
+    if (stopped) return;
+    idleTimer = setTimeout(() => {
+      idleTimer = null;
+      if (stopped) return;
+      if (callerTalking || turnRunning || speaking) return armIdle();
+      void runTurn({ idle: true });
+    }, PROACTIVE_AFTER_MS);
+  };
 
   const id = () => `c-${++seq}`;
   const emit = (seg: Omit<TranscriptSegment, 'id'>) => ev?.onSegment({ ...seg, id: id() });
@@ -182,6 +207,7 @@ export function createCascadeVoice(): VoiceProvider {
         speaking--;
         if (!speaking) {
           ev?.onLevel?.('dispatcher', 0);
+          armIdle(); // vaikuse lugemine algab siis, kui päästekorraldaja lõpetas
           restartRecorder(); // ära saada tuvastusse päästekorraldaja häält, mis kostis kõlarist
         }
       }
@@ -199,8 +225,10 @@ export function createCascadeVoice(): VoiceProvider {
   }
 
   // ───────── Päästekorraldaja vastus ─────────
-  async function runTurn() {
+  async function runTurn(opts: { idle?: boolean } = {}) {
     turnAbort?.abort();
+    clearIdle();
+    turnRunning = true;
     const ctrl = new AbortController();
     turnAbort = ctrl;
     const gen = speakGen;
@@ -211,6 +239,8 @@ export function createCascadeVoice(): VoiceProvider {
     let startMs: CallMs | null = null;
     let endCall = false;
     let nextState: CallState | null = null;
+    /** Kohe öeldud lühike kinnitus („Selge.“): läheb transkripti vastuse ette. */
+    let ack = '';
 
     const flush = (final: boolean) => {
       // Lõika valmis laused välja ja saada kõlarisse.
@@ -264,37 +294,46 @@ export function createCascadeVoice(): VoiceProvider {
     };
 
     try {
-      // Versioon 2: mudel mõistab lauset, kood otsustab vastuse. Kui see ei vasta, kasutame vana marsruuti.
+      // Versioon 2: mudel mõistab lauset, kood otsustab vastuse.
       const lastUser = messages[messages.length - 1];
-      const cue = lastUser?.role === 'user' && lastUser.content.startsWith('[SÜSTEEM]');
-      const post = (url: string, body: unknown) =>
-        fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal: ctrl.signal });
+      const cue = !opts.idle && lastUser?.role === 'user' && lastUser.content.startsWith('[SÜSTEEM]');
+      const callerText = cue || opts.idle ? undefined : lastUser?.content;
+
+      // KIIRTEE: vaikuse voor ja lihtne vastus („jah“, „14“, „sain ukse lahti“) otsustatakse siinsamas telefonis,
+      // ilma serveri ja mudelita. Vastus algab kohe.
+      const quick: Understanding | null = opts.idle ? NO_UNDERSTANDING : callerText ? quickUnderstanding(callState ?? emptyCallState(), callerText) : null;
+      if (whitelist && !cue && quick) {
+        speculative?.ctrl.abort();
+        speculative = null;
+        const move: Move = nextMove(callState ?? emptyCallState(), quick, { whitelist, idle: opts.idle });
+        if (move.dispatch) onLine({ type: 'tool', name: 'dispatch_ambulance', input: { priority: 'A', address: move.dispatch.address, summary: move.dispatch.summary } });
+        onLine({ type: 'text', delta: `[${move.emotion}] ${move.say}` });
+        if (move.endCall) onLine({ type: 'tool', name: 'end_call', input: {} });
+        onLine({ type: 'state', state: move.state });
+        flush(true);
+        return;
+      }
+
+      // Pikem lause läheb mudelile (1–2 s). Ütle kohe lühike kinnitus, et helistaja teaks, et teda kuuldi.
+      if (callerText && callerText.trim().split(/\s+/).length >= 4 && !speaking) {
+        ack = ACKS[ackCount++ % ACKS.length];
+        say(ack, 'calm');
+      }
+      const body = { scenarioId, state: callState ?? undefined, lastDispatcherLine: lastDispatcherLine(), callerText, cue, idle: opts.idle };
+      const post = (url: string, payload: unknown) =>
+        fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload), signal: ctrl.signal });
       // Kui sama teksti kohta on päring juba ette tehtud, kasuta selle vastust (säästab kuni sekundi).
-      const ready = !cue && speculative && lastUser && sameText(speculative.text, lastUser.content) ? speculative : null;
+      const ready = callerText && speculative && sameText(speculative.text, callerText) ? speculative : null;
       if (speculative && !ready) speculative.ctrl.abort();
       speculative = null;
       let res =
         (ready ? await ready.res : null) ??
-        (await post('/api/voice/turn2', {
-          scenarioId,
-          state: callState ?? undefined,
-          lastDispatcherLine: lastDispatcherLine(),
-          callerText: cue ? undefined : lastUser?.content,
-          cue,
-        }).catch((e) => {
+        (await post('/api/voice/turn2', body).catch((e) => {
           if (ctrl.signal.aborted) throw e;
           return null;
         }));
-      // Demo: vaba LLM-iga vana marsruuti (/api/voice/turn) enam ei kasutata, sest see mõtles lauseid välja.
-      // Kui kindla stsenaariumi voor ebaõnnestus, proovi sama vooru korra uuesti.
-      if (!res?.ok || !res.body)
-        res = await post('/api/voice/turn2', {
-          scenarioId,
-          state: callState ?? undefined,
-          lastDispatcherLine: lastDispatcherLine(),
-          callerText: cue ? undefined : lastUser?.content,
-          cue,
-        });
+      // Kui voor ebaõnnestus, proovi sama vooru korra uuesti.
+      if (!res?.ok || !res.body) res = await post('/api/voice/turn2', body);
       if (!res.ok || !res.body) throw new Error(`Päästekorraldaja ei vasta (${res.status})`);
       const reader = res.body.getReader();
       const dec = new TextDecoder();
@@ -319,8 +358,11 @@ export function createCascadeVoice(): VoiceProvider {
       if (text && !stopped && !ctrl.signal.aborted) {
         if (nextState) callState = nextState; // seis uueneb ainult siis, kui vastus päriselt öeldi
         messages.push({ role: 'assistant', content: text });
-        emit({ speaker: 'dispatcher', text, startMs: startMs ?? now(), endMs: now() });
+        emit({ speaker: 'dispatcher', text: ack ? `${ack} ${text}` : text, startMs: startMs ?? now(), endMs: now() });
       }
+      if (turnAbort === ctrl) turnRunning = false;
+      // Kui midagi ei öeldud (viga või katkestus), käivita vaikuse taimer uuesti, et kõne ei jääks seisma.
+      if (!speaking) armIdle();
       if (endCall && !stopped) {
         // Lase lõpulause ära rääkida, siis lõpeta.
         void speakChain.then(() => !stopped && ev?.onToolCall({ name: 'end_call' }));
@@ -485,6 +527,7 @@ export function createCascadeVoice(): VoiceProvider {
 
       const finish = async () => {
         timer = null;
+        callerTalking = false;
         const rough = pending.trim();
         const s = startMs ?? now();
         const p = precise;
@@ -496,7 +539,7 @@ export function createCascadeVoice(): VoiceProvider {
         // (kinnitus, teadvus, hingamine), vastatakse kohe voomudeli teksti põhjal: see säästab ligi sekundi.
         const topic = callState?.lastTopic ?? null;
         const needsPrecise = topic === null || topic === 'what' || topic.startsWith('location');
-        const better = p && needsPrecise ? await Promise.race([p, new Promise<null>((r) => setTimeout(() => r(null), 600))]) : null;
+        const better = p && needsPrecise ? await Promise.race([p, new Promise<null>((r) => setTimeout(() => r(null), 450))]) : null;
         const text = better && /[\p{L}\p{N}]/u.test(better) ? better : rough;
         if (stopped) return;
         if (/[\p{L}\p{N}]/u.test(text)) callerSaid(text, s, now(), text === rough ? undefined : rough);
@@ -513,6 +556,8 @@ export function createCascadeVoice(): VoiceProvider {
         const text = (m.text ?? '').trim();
         const begin = () => {
           if (startMs !== null) return;
+          callerTalking = true;
+          clearIdle();
           startMs = Math.max(0, now() - 800);
           startSample = Math.max(ringStart, lastEndSample, total - Math.round(RATE * 3)); // kuni 3 s varu, aga mitte üle eelmise lause
           speechStartedAt = performance.now();
@@ -537,7 +582,7 @@ export function createCascadeVoice(): VoiceProvider {
           // Vasta kohe, kui lause tundub lõpetatud. Kui see lõpeb poolikult (koma, sidesõna, "ee"), oota veidi kauem,
           // et helistajat ei katkestataks mõttepausi ajal. Kui ta jätkab, liidetakse laused üheks.
           const unfinished = /(,|\b(ja|et|aga|siis|või|ning|kuna|sest|nagu|noh|ee+|öö+|aa+|mm+|a))\s*[.…]*$/iu.test(pending);
-          timer = setTimeout(() => void finish(), unfinished ? 1300 : 250);
+          timer = setTimeout(() => void finish(), unfinished ? 1200 : 200);
         } else if (m.message_type && m.message_type !== 'session_started' && m.message_type !== 'warning') {
           // quota_exceeded, auth_error, rate_limited, ...: mine üle varuvariandile (tükkidena saatmine).
           console.warn('[voice] voogtuvastuse viga', m.message_type, m.error);
@@ -682,7 +727,18 @@ export function createCascadeVoice(): VoiceProvider {
       dispatched = false;
       callState = null;
       // Lae tõenäolisemad kindlad laused ette, et esimene küsimus tuleks viivituseta.
-      for (const t of Object.keys(STATIC_AUDIO).slice(0, 24)) void staticAudio(t);
+      // Lae kõik kindlad laused ette (väikesed failid), et ükski vastus ei ootaks allalaadimist.
+      for (const t of Object.keys(STATIC_AUDIO)) void staticAudio(t);
+      whitelist = null;
+      callerTalking = false;
+      turnRunning = false;
+      ackCount = 0;
+      void fetch(`/api/scenarios/${opts.scenarioId}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((sc: { dispatcherWhitelist?: string[] } | null) => {
+          if (sc?.dispatcherWhitelist) whitelist = sc.dispatcherWhitelist;
+        })
+        .catch(() => undefined);
       messages.length = 0;
 
       // Heli tuleb avada KOHE, veel helistamisnupu vajutuse sees (enne ühtegi await'i): muidu on telefonis vaikus.
@@ -768,6 +824,7 @@ export function createCascadeVoice(): VoiceProvider {
 
     async stop() {
       stopped = true;
+      clearIdle();
       turnAbort?.abort();
       cancelSpeech();
       if (vadTimer) clearInterval(vadTimer);
