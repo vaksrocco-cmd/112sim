@@ -19,6 +19,8 @@ export function HostView({ scenario }: { scenario: PublicScenario }) {
   const [introDone, setIntroDone] = useState(false);
   const [session, setSession] = useState<CallSession | null>(null);
   const lastSeen = useRef(0);
+  /** Video heli (toaheli, kell, Helgi häälitsused). Brauser lubab heli alles pärast klõpsu sellel lehel. */
+  const [sound, setSound] = useState(false);
   /** Seisund, mille üleminekuklipp parajasti mängib (üks kord, enne kordust). */
   const [onsetFor, setOnsetFor] = useState<string | null>(null);
   const prevStateId = useRef<string | null>(null);
@@ -144,13 +146,14 @@ export function HostView({ scenario }: { scenario: PublicScenario }) {
                 src={s.clipUrl}
                 loop={s.kind === 'loop'}
                 active={!blackout && activeId === s.id && !(onsetActive && onsetFor === s.id)}
+                volume={sound ? (phase === 'in_call' ? 0.35 : 1) : 0}
                 onEnded={s.kind === 'intro' ? () => setIntroDone(true) : undefined}
               />
             ) : null,
           )}
           {loops.map((s) =>
             s.onsetClipUrl ? (
-              <HostClip key={`onset-${s.id}`} src={s.onsetClipUrl} loop={false} active={!blackout && onsetActive && onsetFor === s.id} onEnded={() => setOnsetFor(null)} />
+              <HostClip key={`onset-${s.id}`} src={s.onsetClipUrl} loop={false} active={!blackout && onsetActive && onsetFor === s.id} volume={sound ? 0.35 : 0} onEnded={() => setOnsetFor(null)} />
             ) : null,
           )}
 
@@ -197,6 +200,17 @@ export function HostView({ scenario }: { scenario: PublicScenario }) {
                 ? 'Vajuta telefonis „Alusta“. Video algab siin ekraanil.'
                 : 'Ava telefoni kaamera ja skaneeri kood. Vaata siit ekraanilt, mis juhtub, ja kutsu telefoniga abi.'}
             </p>
+            <button
+              type="button"
+              onClick={() => setSound((v) => !v)}
+              aria-pressed={sound}
+              className={cx(
+                'gr-motion flex h-14 w-fit items-center gap-3 rounded-full px-7 text-lg font-semibold',
+                sound ? 'bg-surface-2 text-fg' : 'bg-primary text-primary-fg hover:opacity-[0.88]',
+              )}
+            >
+              {sound ? 'Heli on sees' : 'Lülita video heli sisse'}
+            </button>
             {!roomsConfigured() ? <p className="text-lg text-danger">Sünkroon ei ole seadistatud (NEXT_PUBLIC_SUPABASE_URL ja NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY).</p> : null}
           </div>
           <div className="flex flex-col items-center gap-5">
@@ -215,19 +229,30 @@ export function HostView({ scenario }: { scenario: PublicScenario }) {
 }
 
 /** Üks eellaetud klipp virnas; nähtav on ainult aktiivne (500 ms sulandus, src-i ei vahetata). */
-function HostClip({ src, loop, active, onEnded }: { src: string; loop: boolean; active: boolean; onEnded?: () => void }) {
+function HostClip({ src, loop, active, volume, onEnded }: { src: string; loop: boolean; active: boolean; volume: number; onEnded?: () => void }) {
   const ref = useRef<HTMLVideoElement>(null);
   useEffect(() => {
     const v = ref.current;
     if (!v) return;
     if (active) {
       v.currentTime = 0; // kordus algab samast poosist, kus eelmine klipp lõppes
-      void v.play().catch(() => undefined);
+      // Kui brauser ei luba heliga mängida, mängi ilma helita: pilt ei tohi heli taha seisma jääda.
+      void v.play().catch(() => {
+        v.muted = true;
+        void v.play().catch(() => undefined);
+      });
       return;
     }
     const t = setTimeout(() => v.pause(), 600); // peata alles pärast sulandust
     return () => clearTimeout(t);
   }, [active]);
+  // Kõne ajal on video heli vaiksem, et see ei segaks päästekorraldajat ega läheks telefoni mikrofoni.
+  useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    v.muted = volume === 0 || !active;
+    v.volume = Math.max(0, Math.min(1, volume));
+  }, [volume, active]);
   return (
     <video
       ref={ref}

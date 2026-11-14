@@ -13,6 +13,7 @@ export function VideoStage({
   children,
   preload = [],
   onEnded,
+  sound = false,
 }: {
   state?: ScenarioState;
   compact?: boolean;
@@ -21,6 +22,8 @@ export function VideoStage({
   preload?: ScenarioState[];
   /** Kutsutakse, kui ühekordne klipp (sissejuhatus või lõpp) on läbi või ei lae. */
   onEnded?: () => void;
+  /** Kas klipi heli mängib (ainult enne kõnet: kõne ajal läheks see telefoni mikrofoni ja tuvastusse). */
+  sound?: boolean;
 }) {
   const id = state?.id ?? '';
   const [failed, setFailed] = useState<Record<string, boolean>>({});
@@ -47,9 +50,14 @@ export function VideoStage({
       v.pause();
     } else {
       v.currentTime = 0;
-      void v.play().catch(() => undefined);
+      v.muted = !sound;
+      // Kui telefon ei luba heliga mängida, mängi ilma helita.
+      void v.play().catch(() => {
+        v.muted = true;
+        void v.play().catch(() => undefined);
+      });
     }
-  }, [showOnset, id]);
+  }, [showOnset, id, sound]);
 
   const others = preload.flatMap((s) => [s.clipUrl, s.onsetClipUrl]).filter((u): u is string => Boolean(u) && u !== state?.clipUrl && u !== state?.onsetClipUrl);
 
