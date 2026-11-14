@@ -315,7 +315,7 @@ export function createCascadeVoice(): VoiceProvider {
         speculative = null;
         const move: Move = nextMove(known, quick, { whitelist, idle: opts.idle, short });
         // Pikemale lausele vasta nagu inimene: lühike kinnitus ette (mängib kohe, ka siis, kui aadressilause heli alles tehakse).
-        if (callerText && callerText.trim().split(/\s+/).length >= 4 && !speaking) {
+        if (callerText && callerText.trim().split(/\s+/).length >= 4 && !speaking && !short) {
           ack = ACKS[ackCount++ % ACKS.length];
           say(ack, 'calm');
         }
@@ -328,7 +328,7 @@ export function createCascadeVoice(): VoiceProvider {
       }
 
       // Pikem lause läheb mudelile (1–2 s). Ütle kohe lühike kinnitus, et helistaja teaks, et teda kuuldi.
-      if (callerText && callerText.trim().split(/\s+/).length >= 4 && !speaking) {
+      if (callerText && callerText.trim().split(/\s+/).length >= 4 && !speaking && !short) {
         ack = ACKS[ackCount++ % ACKS.length];
         say(ack, 'calm');
       }
