@@ -5,6 +5,9 @@ import { Logo, Page, buttonClass } from '@/components/ui';
 
 const SIM = '/sim/vanaema-insult';
 const HOST = '/host';
+/** Demorežiim: lühike kindel käik esitluse jaoks (mis juhtus -> kus -> millal -> mida teha), kõne jääb taustal käima. */
+const SIM_DEMO = `${SIM}?demo=1`;
+const HOST_DEMO = `${HOST}?demo=1`;
 
 const SOURCES = {
   err: 'https://www.err.ee/909525/uha-enam-numbrile-112-helistajaid-soovib-abi-metsloomale',
@@ -28,6 +31,9 @@ function Actions() {
         <Link href={HOST} className={secondary}>
           Alusta kursust suurel ekraanil
         </Link>
+        <Link href={SIM_DEMO} className={secondary}>
+          Demo (30 sekundit)
+        </Link>
       </div>
       <div className="hidden gap-3 md:flex">
         <Link href={HOST} className={primary}>
@@ -35,6 +41,9 @@ function Actions() {
         </Link>
         <Link href={SIM} className={secondary}>
           Proovi üksi
+        </Link>
+        <Link href={HOST_DEMO} className={secondary}>
+          Demo (30 s)
         </Link>
       </div>
     </>

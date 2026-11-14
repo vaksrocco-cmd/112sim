@@ -100,8 +100,8 @@ export function createCascadeVoice(): VoiceProvider {
   let turnRunning = false;
   let idleTimer: ReturnType<typeof setTimeout> | null = null;
   let ackCount = 0;
-  /** Lühike demo (vaikimisi): mis juhtus -> kus -> millal -> mida teha. Pikk juhendav kõne: lisa aadressile ?pikk=1. */
-  let short = true;
+  /** Demorežiim (aadressil ?demo=1): mis juhtus -> kus -> millal -> mida teha. Vaikimisi on tavaline pikk juhendav kõne. */
+  let short = false;
   const clearIdle = () => {
     if (idleTimer) clearTimeout(idleTimer);
     idleTimer = null;
@@ -745,7 +745,7 @@ export function createCascadeVoice(): VoiceProvider {
       callerTalking = false;
       turnRunning = false;
       ackCount = 0;
-      short = typeof window === 'undefined' || !new URLSearchParams(window.location.search).has('pikk');
+      short = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('demo');
       void fetch(`/api/scenarios/${opts.scenarioId}`)
         .then((r) => (r.ok ? r.json() : null))
         .then((sc: { dispatcherWhitelist?: string[] } | null) => {
