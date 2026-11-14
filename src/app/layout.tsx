@@ -8,7 +8,7 @@ const sans = Geist({ subsets: ['latin', 'latin-ext'], variable: '--font-geist-sa
 const mono = Geist_Mono({ subsets: ['latin', 'latin-ext'], variable: '--font-geist-mono' });
 
 export const metadata: Metadata = {
-  title: '112Sim',
+  title: 'CallAble',
   description: 'Hädaabikõne treeningsimulatsioon',
 };
 
