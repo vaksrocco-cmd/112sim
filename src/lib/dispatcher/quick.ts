@@ -66,3 +66,59 @@ export function quickUnderstanding(state: CallState, callerText: string): Unders
   }
 }
 
+
+const UNITS: Record<string, number> = { üks: 1, kaks: 2, kolm: 3, neli: 4, viis: 5, kuus: 6, seitse: 7, kaheksa: 8, üheksa: 9, kümme: 10 };
+/** „neliteist“ -> 14, „kakskümmend kolm“ -> 23. Tagastab null, kui see ei ole arv 1–99. */
+function numberWord(a: string, b?: string): { value: number; used: number } | null {
+  if (UNITS[a]) return { value: UNITS[a], used: 1 };
+  const teen = a.match(/^(.+)teist(kümmend)?$/u);
+  if (teen && UNITS[teen[1]]) return { value: 10 + UNITS[teen[1]], used: 1 };
+  const tens = a.match(/^(.+)kümmend$/u);
+  if (tens && UNITS[tens[1]]) return b && UNITS[b] && UNITS[b] < 10 ? { value: UNITS[tens[1]] * 10 + UNITS[b], used: 2 } : { value: UNITS[tens[1]] * 10, used: 1 };
+  return null;
+}
+
+const STREET_TYPE = /^(tee|tänav|tänaval|tn|maantee|mnt|puiestee|pst|põik)$/u;
+
+/** Aadress kujul „Männikäbi tee 14, Haabneeme“ (number ka sõnadega). Leiab ainult selle, mis on selgelt öeldud. */
+export function parseAddress(text: string): { street: string | null; house: string | null; settlement: string | null; addressLike: boolean } {
+  const tokens = text.replace(/[^\p{L}\p{N}\s-]/gu, ' ').split(/\s+/).filter(Boolean);
+  const low = tokens.map((w) => w.toLowerCase());
+  let street: string | null = null;
+  let house: string | null = null;
+  const i = low.findIndex((w) => STREET_TYPE.test(w));
+  if (i > 0) {
+    const name = tokens[i - 1];
+    street = `${name[0].toUpperCase()}${name.slice(1)} ${low[i] === 'tänaval' ? 'tänav' : low[i]}`;
+    const next = low[i + 1];
+    if (next && /^\d{1,3}[a-z]?$/u.test(next)) house = next;
+    else if (next) house = numberWord(next, low[i + 2])?.value.toString() ?? null;
+  }
+  const place = PLACES.find((p) => low.some((w, k) => k !== i - 1 && w.startsWith(p.toLowerCase()) && w.length <= p.length + 3));
+  return { street, house, settlement: place ?? null, addressLike: i >= 0 || /\d/u.test(text) || Boolean(place) || low.some((w) => /^(teel|tänava\p{L}*|maantee\p{L}+|puiestee\p{L}+|põigu\p{L}*|korter\p{L}*|maja\p{L}*)$/u.test(w)) };
+}
+
+/**
+ * Lühikese demo kiirtee: esimene lause (mis juhtus) ja selgelt öeldud aadress mõistetakse ilma mudelita, nii et
+ * päästekorraldaja vastab kohe. Kui lause on mitmeti mõistetav (aadressi moodi, aga ei tule täielikult välja), otsustab mudel.
+ */
+export function demoQuick(state: CallState, callerText: string): Understanding | null {
+  const text = callerText.replace(/\[kõnetuvastuse teine variant:[^\]]*\]/giu, '').trim();
+  const words = text.split(/\s+/).filter(Boolean);
+  if (!words.length || /\?/u.test(text)) return null;
+  const a = parseAddress(text);
+  const base = { ...NO_UNDERSTANDING, intent: 'info' as const };
+  const topic = state.lastTopic;
+  if (!state.what && (topic === null || topic === 'what')) {
+    // Esimene lause: juhtunu helistaja sõnadega. Ainult „appi“ või „saatke kiirabi“ ei ole kirjeldus.
+    if (words.length < 3 || /^(appi|palun|halloo?|tere)[\s,.!]*$/iu.test(text) || /^(saatke|kutsuge|tulge)\b/iu.test(text)) return null;
+    if (a.addressLike && !(a.street && a.house && a.settlement)) return null;
+    return { ...base, what: text.slice(0, 120), street: a.street, house: a.house, settlement: a.settlement };
+  }
+  if (topic?.startsWith('location') && words.length <= 8) {
+    const have = { street: state.street ?? a.street, house: state.house ?? a.house, settlement: state.settlement ?? a.settlement };
+    // Vasta ilma mudelita ainult siis, kui aadress sai sellega täis: muidu võis midagi kaduma minna.
+    if (have.street && have.house && have.settlement && (a.street || a.house || a.settlement)) return { ...base, street: a.street, house: a.house, settlement: a.settlement };
+  }
+  return null;
+}

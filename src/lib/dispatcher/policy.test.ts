@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { emptyCallState, fixedLines, nextMove, NO_UNDERSTANDING, type CallState, type Move, type Understanding } from './policy';
+import { demoQuick, parseAddress } from './quick';
 import { fallbackUnderstanding, quickUnderstanding } from './understand';
 
 const whitelist = [
@@ -261,5 +262,19 @@ describe('dispatcher policy', () => {
     // Kõik esimeses lauses: kohe abi teele ja järgmine küsimus.
     const all = nextMove(emptyCallState(), u({ what: 'x', street: 'A tee', house: '1', settlement: 'B' }), { whitelist: wl, short: true });
     expect(all.say).toBe('Saadan kiirabi aadressile A tee 1, B. Millal see algas?');
+  });
+
+  it('short demo answers the first sentence and a clear address without the model', () => {
+    const first = demoQuick(emptyCallState(), 'Mu vanaema räägib äkki segaselt ja suunurk on viltu');
+    expect(first?.what).toBe('Mu vanaema räägib äkki segaselt ja suunurk on viltu');
+    expect(demoQuick(emptyCallState(), 'Appi!')).toBeNull();
+    expect(demoQuick(emptyCallState(), 'Saatke kiirabi kiiresti')).toBeNull();
+    // Aadressi moodi, aga poolik: jääb mudelile.
+    expect(demoQuick(emptyCallState(), 'Vanaemal on halb, oleme Männikäbi teel')).toBeNull();
+    const asked = { ...emptyCallState(), what: 'x', lastTopic: 'location:all' };
+    expect(demoQuick(asked, 'Männikäbi tee neliteist, Haabneemes')).toMatchObject({ street: 'Männikäbi tee', house: '14', settlement: 'Haabneeme' });
+    expect(demoQuick(asked, 'Männikäbi tee 14')).toBeNull(); // asula puudu: mudel kontrollib üle
+    expect(demoQuick({ ...asked, street: 'Männikäbi tee', house: '14', lastTopic: 'location:settlement' }, 'Haabneemes')).toMatchObject({ settlement: 'Haabneeme' });
+    expect(parseAddress('Pärna tänav kakskümmend kolm Tartus')).toMatchObject({ street: 'Pärna tänav', house: '23', settlement: 'Tartu' });
   });
 });
