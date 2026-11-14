@@ -243,9 +243,9 @@ export function createCascadeVoice(): VoiceProvider {
     } catch (e) {
       if (!ctrl.signal.aborted && !stopped) ev?.onError(e instanceof Error ? e : new Error(String(e)));
     } finally {
-      // Ka katkestatud vastus läheb ajalukku nii palju, kui jõuti öelda.
+      // Katkestatud vastust (helistaja rääkis edasi) ajalukku ei panda: muidu küsiks päästekorraldaja sama asja uuesti.
       const text = full.trim();
-      if (text && !stopped) {
+      if (text && !stopped && !ctrl.signal.aborted) {
         messages.push({ role: 'assistant', content: text });
         emit({ speaker: 'dispatcher', text, startMs: startMs ?? now(), endMs: now() });
       }
@@ -261,7 +261,11 @@ export function createCascadeVoice(): VoiceProvider {
     if (stopped || !text.trim()) return;
     const same = (a: string, b: string) => a.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '') === b.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
     const note = alt && alt.trim() && !same(alt, text) ? `\n[kõnetuvastuse teine variant: ${alt.trim()}]` : '';
-    messages.push({ role: 'user', content: text.trim() + note });
+    // Kui eelmisele lausele ei jõutud veel vastata (vastus katkestati), liida laused üheks sõnumiks:
+    // päästekorraldaja vastab siis ühe korra kogu jutule, mitte kaks korda samale küsimusele.
+    const prev = messages[messages.length - 1];
+    if (prev?.role === 'user' && !prev.content.startsWith('[SÜSTEEM]')) prev.content = `${prev.content} ${text.trim()}${note}`;
+    else messages.push({ role: 'user', content: text.trim() + note });
     emit({ speaker: 'caller', text: text.trim(), startMs, endMs });
     void runTurn();
   }
@@ -325,7 +329,7 @@ export function createCascadeVoice(): VoiceProvider {
         audio_format: 'pcm_16000',
         language_code: 'et',
         commit_strategy: 'vad',
-        vad_silence_threshold_secs: '0.7',
+        vad_silence_threshold_secs: '0.5',
       });
       for (const k of LIVE_KEYTERMS) q.append('keyterms', k);
       const ws = new WebSocket(`wss://api.elevenlabs.io/v1/speech-to-text/realtime?${q}`);
@@ -386,6 +390,11 @@ export function createCascadeVoice(): VoiceProvider {
       let pending = ''; // voomudeli lõpetatud laused, mis ootavad, kas helistaja jätkab
       let startMs: CallMs | null = null;
       let startSample = 0;
+      /** Koht helis, kus eelmine lause lõppes: uue lause täpne tuvastus ei tohi sellest varasemat heli sisaldada
+       *  (muidu kirjutatakse eelmise lause lõpp teist korda ja päästekorraldaja vastab samale jutule kaks korda). */
+      let lastEndSample = 0;
+      let commitSample = 0;
+      let speechStartedAt = 0;
       let timer: ReturnType<typeof setTimeout> | null = null;
       let precise: Promise<string | null> | null = null;
       let preciseAbort: AbortController | null = null;
@@ -410,8 +419,9 @@ export function createCascadeVoice(): VoiceProvider {
         pending = '';
         startMs = null;
         precise = null;
-        // Oota täpset teksti kuni 2,5 s; kui see ei jõua, kasuta voomudeli teksti (kõne ei tohi toppama jääda).
-        const better = p ? await Promise.race([p, new Promise<null>((r) => setTimeout(() => r(null), 2500))]) : null;
+        lastEndSample = commitSample;
+        // Oota täpset teksti kuni 0,7 s (see alustati juba lause lõppedes); kui see ei jõua, kasuta voomudeli teksti.
+        const better = p ? await Promise.race([p, new Promise<null>((r) => setTimeout(() => r(null), 700))]) : null;
         const text = better && /[\p{L}\p{N}]/u.test(better) ? better : rough;
         if (stopped) return;
         if (/[\p{L}\p{N}]/u.test(text)) callerSaid(text, s, now(), text === rough ? undefined : rough);
@@ -429,7 +439,8 @@ export function createCascadeVoice(): VoiceProvider {
         const begin = () => {
           if (startMs !== null) return;
           startMs = Math.max(0, now() - 800);
-          startSample = Math.max(ringStart, total - Math.round(RATE * 3)); // 3 s varu, et lause algus jääks kindlasti sisse
+          startSample = Math.max(ringStart, lastEndSample, total - Math.round(RATE * 3)); // kuni 3 s varu, aga mitte üle eelmise lause
+          speechStartedAt = performance.now();
         };
         if (m.message_type === 'partial_transcript') {
           if (!text) return;
@@ -443,10 +454,14 @@ export function createCascadeVoice(): VoiceProvider {
           if (!text) return;
           begin();
           pending = `${pending} ${text}`.trim();
+          commitSample = total;
           ev?.onPartial?.('caller', pending);
           startPrecise();
           if (timer) clearTimeout(timer);
-          timer = setTimeout(() => void finish(), 450); // kui kohe tuleb järgmine lause, liidetakse need üheks
+          // Vasta kohe, kui lause tundub lõpetatud. Kui see lõpeb poolikult (koma, sidesõna, "ee"), oota veidi kauem,
+          // et helistajat ei katkestataks mõttepausi ajal. Kui ta jätkab, liidetakse laused üheks.
+          const unfinished = /(,|\b(ja|et|aga|siis|või|ning|kuna|sest|nagu|noh|ee+|öö+|aa+|mm+|a))\s*[.…]*$/iu.test(pending);
+          timer = setTimeout(() => void finish(), unfinished ? 1300 : 250);
         } else if (m.message_type && m.message_type !== 'session_started' && m.message_type !== 'warning') {
           // quota_exceeded, auth_error, rate_limited, ...: mine üle varuvariandile (tükkidena saatmine).
           console.warn('[voice] voogtuvastuse viga', m.message_type, m.error);
@@ -470,7 +485,7 @@ export function createCascadeVoice(): VoiceProvider {
       const mute = ctx.createGain();
       mute.gain.value = 0;
       const ratio = ctx.sampleRate / RATE;
-      const sendChunk = (pcm: Int16Array) => {
+      const sendChunk = (pcm: Int16Array, commit = false) => {
         ring.push(pcm);
         total += pcm.length;
         while (ring.length && total - ringStart > RATE * 45) ringStart += ring.shift()!.length;
@@ -478,7 +493,7 @@ export function createCascadeVoice(): VoiceProvider {
         const bytes = new Uint8Array(pcm.buffer);
         let bin = '';
         for (let i = 0; i < bytes.length; i += 0x2000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x2000));
-        ws.send(JSON.stringify({ message_type: 'input_audio_chunk', audio_base_64: btoa(bin), commit: false, sample_rate: RATE }));
+        ws.send(JSON.stringify({ message_type: 'input_audio_chunk', audio_base_64: btoa(bin), commit, sample_rate: RATE }));
       };
       /** Viimased ~0,8 s päris heli ajast, mil tuvastusse läks vaikus: vahelerääkimisel saadetakse need järele, et lause algus ei kaoks. */
       let held: Int16Array[] = [];
@@ -503,7 +518,10 @@ export function createCascadeVoice(): VoiceProvider {
         }
         for (const h of held) sendChunk(h);
         held = [];
-        sendChunk(out);
+        // Kui üks lause on kestnud üle 12 s, lõpeta see ise ära, et päästekorraldaja saaks vastata.
+        const force = startMs !== null && !timer && performance.now() - speechStartedAt > 12000;
+        if (force) speechStartedAt = performance.now();
+        sendChunk(out, force);
       };
       src.connect(node);
       node.connect(mute).connect(ctx.destination); // ScriptProcessor töötab ainult siis, kui see on väljundiga ühendatud
