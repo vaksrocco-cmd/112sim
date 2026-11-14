@@ -3,10 +3,13 @@
 //            -> /api/voice/turn (OpenAI, voog + tööriistad) -> /api/voice/tts (TartuNLP) -> kõlar.
 // Kui mikrofoni ei lubata, töötab sama voog tekstirežiimis (sendCallerText).
 // Heli ei salvestata: iga lause läheb tuvastusse ja visatakse ära.
+import { GREETING, type CallState } from '../dispatcher/policy';
 import type { CallMs, TranscriptSegment } from '../types';
+import staticLines from './lines.json';
 import type { DispatcherToolCall, VoiceEvents, VoiceProvider, VoiceStartOptions } from './VoiceProvider';
 
-const GREETING = 'Häirekeskus kuuleb, mis juhtus?';
+/** Ette valmis tehtud heli kindlatele lausetele (lause -> fail). Vt scripts/make-dispatcher-audio.mjs. */
+const STATIC_AUDIO: Record<string, string> = staticLines;
 const TICK_MS = 50;
 const SPEECH_MIN_MS = 250; // nii kaua peab heli kestma, et see loeks kõneks
 const SILENCE_END_MS = 550; // nii pikk paus lõpetab lause
@@ -30,7 +33,8 @@ type TurnLine =
   | { type: 'text'; delta: string }
   | { type: 'tool'; name: string; input: unknown }
   | { type: 'done' }
-  | { type: 'error'; message: string };
+  | { type: 'error'; message: string }
+  | { type: 'state'; state: CallState };
 
 export function createCascadeVoice(): VoiceProvider {
   let ev: VoiceEvents | null = null;
@@ -38,6 +42,10 @@ export function createCascadeVoice(): VoiceProvider {
   let scenarioId = '';
   let stopped = true;
   let dispatched = false;
+  /** Mida päästekorraldaja kõnest seni teab (vt lib/dispatcher/policy.ts). Server tagastab selle iga vooruga. */
+  let callState: CallState | null = null;
+  /** Kindlate lausete heli, kui see on juba alla laaditud. */
+  const audioCache = new Map<string, Promise<ArrayBuffer | null>>();
   let seq = 0;
   const messages: Msg[] = [];
 
@@ -68,7 +76,23 @@ export function createCascadeVoice(): VoiceProvider {
   const emit = (seg: Omit<TranscriptSegment, 'id'>) => ev?.onSegment({ ...seg, id: id() });
 
   // ───────── Kõnesüntees ─────────
+  function staticAudio(text: string): Promise<ArrayBuffer | null> | null {
+    const url = STATIC_AUDIO[text];
+    if (!url) return null;
+    let p = audioCache.get(text);
+    if (!p) {
+      p = fetch(url)
+        .then((r) => (r.ok ? r.arrayBuffer() : null))
+        .catch(() => null);
+      audioCache.set(text, p);
+    }
+    return p;
+  }
+
   async function fetchTts(text: string, emotion: Emotion): Promise<ArrayBuffer | null> {
+    // Kindel lause on ette valmis tehtud: mängib kohe, ilma kõnesünteesi ootamata.
+    const ready = await staticAudio(text);
+    if (ready) return ready;
     try {
       const res = await fetch('/api/voice/tts', {
         method: 'POST',
@@ -167,6 +191,7 @@ export function createCascadeVoice(): VoiceProvider {
     let pending = '';
     let startMs: CallMs | null = null;
     let endCall = false;
+    let nextState: CallState | null = null;
 
     const flush = (final: boolean) => {
       // Lõika valmis laused välja ja saada kõlarisse.
@@ -212,18 +237,30 @@ export function createCascadeVoice(): VoiceProvider {
         } else if (line.name === 'end_call') {
           endCall = true;
         }
+      } else if (line.type === 'state') {
+        nextState = line.state;
       } else if (line.type === 'error') {
         throw new Error(line.message);
       }
     };
 
     try {
-      const res = await fetch('/api/voice/turn', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ scenarioId, messages, dispatched }),
-        signal: ctrl.signal,
+      // Versioon 2: mudel mõistab lauset, kood otsustab vastuse. Kui see ei vasta, kasutame vana marsruuti.
+      const lastUser = messages[messages.length - 1];
+      const cue = lastUser?.role === 'user' && lastUser.content.startsWith('[SÜSTEEM]');
+      const post = (url: string, body: unknown) =>
+        fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal: ctrl.signal });
+      let res = await post('/api/voice/turn2', {
+        scenarioId,
+        state: callState ?? undefined,
+        lastDispatcherLine: [...messages].reverse().find((m) => m.role === 'assistant')?.content ?? '',
+        callerText: cue ? undefined : lastUser?.content,
+        cue,
+      }).catch((e) => {
+        if (ctrl.signal.aborted) throw e;
+        return null;
       });
+      if (!res?.ok || !res.body) res = await post('/api/voice/turn', { scenarioId, messages, dispatched });
       if (!res.ok || !res.body) throw new Error(`Päästekorraldaja ei vasta (${res.status})`);
       const reader = res.body.getReader();
       const dec = new TextDecoder();
@@ -246,6 +283,7 @@ export function createCascadeVoice(): VoiceProvider {
       // Katkestatud vastust (helistaja rääkis edasi) ajalukku ei panda: muidu küsiks päästekorraldaja sama asja uuesti.
       const text = full.trim();
       if (text && !stopped && !ctrl.signal.aborted) {
+        if (nextState) callState = nextState; // seis uueneb ainult siis, kui vastus päriselt öeldi
         messages.push({ role: 'assistant', content: text });
         emit({ speaker: 'dispatcher', text, startMs: startMs ?? now(), endMs: now() });
       }
@@ -512,12 +550,22 @@ export function createCascadeVoice(): VoiceProvider {
         // välja arvatud siis, kui helistaja räägib selgelt vahele.
         if (speaking && !bargeIn) {
           held.push(out);
-          if (held.length > 3) held.shift();
+          if (held.length > 6) held.shift();
           sendChunk(new Int16Array(out.length));
           return;
         }
-        for (const h of held) sendChunk(h);
-        held = [];
+        if (held.length) {
+          // Värav avanes. Kui helistaja rääkis vahele, saada kogu hoitud heli järele. Kui päästekorraldaja lihtsalt lõpetas,
+          // saada järele ainult see osa, kus helistaja juba rääkis (vähemalt kaks kõnetugevusega tükki), et lause algus ei kaoks.
+          const loud = (c: Int16Array) => {
+            let sum = 0;
+            for (let i = 0; i < c.length; i += 4) sum += c[i] * c[i];
+            return Math.sqrt(sum / (c.length / 4)) > 900;
+          };
+          const first = bargeIn ? 0 : held.findIndex(loud);
+          if (first >= 0 && (bargeIn || held.slice(first).filter(loud).length >= 2)) for (const h of held.slice(first)) sendChunk(h);
+          held = [];
+        }
         // Kui üks lause on kestnud üle 12 s, lõpeta see ise ära, et päästekorraldaja saaks vastata.
         const force = startMs !== null && !timer && performance.now() - speechStartedAt > 12000;
         if (force) speechStartedAt = performance.now();
@@ -594,6 +642,9 @@ export function createCascadeVoice(): VoiceProvider {
       scenarioId = opts.scenarioId;
       stopped = false;
       dispatched = false;
+      callState = null;
+      // Lae tõenäolisemad kindlad laused ette, et esimene küsimus tuleks viivituseta.
+      for (const t of Object.keys(STATIC_AUDIO).slice(0, 24)) void staticAudio(t);
       messages.length = 0;
 
       // Heli tuleb avada KOHE, veel helistamisnupu vajutuse sees (enne ühtegi await'i): muidu on telefonis vaikus.
