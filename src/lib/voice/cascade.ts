@@ -28,7 +28,7 @@ const VOLUME: Record<Emotion, number> = { calm: 1, firm: 1.35, urgent: 1.8 };
 const LIVE_KEYTERMS = [
   'Tallinn', 'Tartu', 'Narva', 'Pärnu', 'Viljandi', 'Rakvere', 'Maardu', 'Kuressaare', 'Haapsalu', 'Keila', 'Saue', 'Saku', 'Jüri', 'Tabasalu',
   'Viimsi', 'Viimsi vald', 'Haabneeme', 'Pringi', 'Püünsi', 'Rohuneeme', 'Leppneeme', 'Tammneeme', 'Randvere', 'Miiduranna', 'Pärnamäe', 'Lubja',
-  'Muuga', 'Pirita', 'Merivälja', 'Lasnamäe', 'Mustamäe', 'Kristiine', 'Nõmme', 'Harjumaa', 'teadvusel', 'hingab', 'suunurk', 'kiirabi',
+  'Randvere tee', 'Viimsi Artium', 'Artium', 'Muuga', 'Pirita', 'Merivälja', 'Lasnamäe', 'Mustamäe', 'Kristiine', 'Nõmme', 'Harjumaa', 'teadvusel', 'hingab', 'suunurk', 'kiirabi',
 ];
 
 type Msg = { role: 'user' | 'assistant'; content: string };
@@ -109,7 +109,8 @@ export function createCascadeVoice(): VoiceProvider {
   /** Käivita vaikuse taimer: kui keegi ei räägi, ütleb päästekorraldaja ise järgmise asja. */
   const armIdle = () => {
     clearIdle();
-    if (stopped) return;
+    // Demos ei alusta päästekorraldaja ise kunagi juttu (range skript).
+    if (stopped || short) return;
     idleTimer = setTimeout(() => {
       idleTimer = null;
       if (stopped) return;
@@ -385,6 +386,11 @@ export function createCascadeVoice(): VoiceProvider {
   /** `alt` on teise tuvastaja variant samast lausest: päästekorraldaja näeb mõlemat ja valib mõistlikuma tõlgenduse. */
   function callerSaid(text: string, startMs: CallMs, endMs: CallMs, alt?: string) {
     if (stopped || !text.trim()) return;
+    // Demo skript on läbi: kõne käib taustal, aga päästekorraldaja ei kuula ega vasta enam (esitlus läheb edasi).
+    if (short && callState?.asked?.demoDone) return;
+    // Kaja: mikrofon kuulis päästekorraldaja enda lauset kõlarist. Seda ei loeta helistaja jutuks.
+    const flat = (x: string) => x.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+    if (flat(text).length >= 8 && flat(lastDispatcherLine()).includes(flat(text))) return;
     const same = (a: string, b: string) => a.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '') === b.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
     const note = alt && alt.trim() && !same(alt, text) ? `\n[kõnetuvastuse teine variant: ${alt.trim()}]` : '';
     // Kui eelmisele lausele ei jõutud veel vastata (vastus katkestati), liida laused üheks sõnumiks:

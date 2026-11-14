@@ -241,31 +241,36 @@ describe('dispatcher policy', () => {
     expect(fallbackUnderstanding('Jah, õige.').confirmation).toBe('yes');
   });
 
-  it('short demo: what -> where -> when -> what to do and wait, and the call stays open', () => {
+  it('demo: says only the four scripted lines, never repeats, then stays silent', () => {
     const wl = [...whitelist, 'Ärge andke talle süüa, juua ega ravimeid.'];
+    const opts = { whitelist: wl, short: true };
     const m: Move[] = [];
     let state = emptyCallState();
-    for (const step of [{ what: 'vanaema räägib segaselt' }, { street: 'Männikäbi tee', house: '14', settlement: 'Haabneeme' }, {}] as Partial<Understanding>[]) {
-      const move = nextMove(state, u(step), { whitelist: wl, short: true });
+    const turn = (step: Partial<Understanding> | 'idle') => {
+      const move = step === 'idle' ? nextMove(state, NO_UNDERSTANDING, { ...opts, idle: true }) : nextMove(state, u(step), opts);
       m.push(move);
       state = move.state;
-    }
-    expect(m[0].say).toBe('Kus see toimub?');
-    expect(m[1].dispatch?.address).toBe('Männikäbi tee 14, Haabneeme');
-    expect(m[1].say).toBe('Saadan kiirabi aadressile Männikäbi tee 14, Haabneeme. Millal see algas?');
-    expect(m[2].say).toBe('Ärge andke talle süüa, juua ega ravimeid. Tehke välisuks lahti, et kiirabi saaks sisse. Abi on teel. Püsige tema juures, kuni kiirabi kohale jõuab.');
-    // Kõne jääb lahti: päästekorraldaja ei lõpeta seda ega alusta vaikuses ise juttu, aga vastab, kui helistaja räägib.
-    expect(m[2].endCall).toBeUndefined();
-    expect(nextMove(m[2].state, NO_UNDERSTANDING, { whitelist: wl, short: true, idle: true }).say).toBe('');
-    const after = nextMove(m[2].state, u({}), { whitelist: wl, short: true });
-    expect(after.say).toBe('Kui vana ta on?');
-    expect(after.endCall).toBeUndefined();
-    // Poolik aadress: küsib puuduva osa juurde, abi ei lähe enne teele.
-    const part = nextMove(m[0].state, u({ street: 'Männikäbi tee', house: '14' }), { whitelist: wl, short: true });
-    expect(part.say).toBe('Mis linnas või asulas see on?');
-    expect(part.dispatch).toBeUndefined();
-    // Kõik esimeses lauses: kohe abi teele ja järgmine küsimus.
-    const all = nextMove(emptyCallState(), u({ what: 'x', street: 'A tee', house: '1', settlement: 'B' }), { whitelist: wl, short: true });
+      return move;
+    };
+    expect(turn('idle').say).toBe(''); // vaikuses ei küsi ta uuesti
+    expect(turn({ intent: 'unclear' }).say).toBe(''); // arusaamatu lause: ootab, ei korda
+    expect(turn({ what: 'vanaema räägib segaselt' }).say).toBe('Kus see toimub?');
+    expect(turn({ intent: 'unclear' }).say).toBe(''); // kohta ei kuulnud: ootab, ei küsi uuesti
+    const sent = turn({ street: 'Randvere tee', house: '20', settlement: 'Haabneeme' });
+    expect(sent.say).toBe('Saadan kiirabi aadressile Randvere tee 20, Haabneeme. Millal see algas?');
+    expect(sent.dispatch?.address).toBe('Randvere tee 20, Haabneeme');
+    const last = turn({});
+    expect(last.say).toBe('Ärge andke talle süüa, juua ega ravimeid. Tehke välisuks lahti, et kiirabi saaks sisse. Abi on teel. Püsige tema juures, kuni kiirabi kohale jõuab.');
+    expect(last.endCall).toBeUndefined();
+    // Pärast skripti: vait, mida iganes öeldakse või mis märguanne tuleb.
+    expect(turn({ what: 'midagi muud', intent: 'asks_what_to_do' }).say).toBe('');
+    expect(turn('idle').say).toBe('');
+    expect(nextMove(state, NO_UNDERSTANDING, { ...opts, cue: true }).say).toBe('');
+    // Poolik aadress läheb teele sellisena, nagu kuuldi (lisaküsimusi demos ei ole).
+    const part = nextMove({ ...emptyCallState(), what: 'x', asked: { demoStep: 1 } }, u({ street: 'Randvere tee', house: '20' }), opts);
+    expect(part.say).toBe('Saadan kiirabi aadressile Randvere tee 20. Millal see algas?');
+    // Kõik esimeses lauses: „Kus see toimub?“ jääb vahele.
+    const all = nextMove(emptyCallState(), u({ what: 'x', street: 'A tee', house: '1', settlement: 'B' }), opts);
     expect(all.say).toBe('Saadan kiirabi aadressile A tee 1, B. Millal see algas?');
   });
 
@@ -278,8 +283,9 @@ describe('dispatcher policy', () => {
     expect(demoQuick(emptyCallState(), 'Vanaemal on halb, oleme Männikäbi teel')).toBeNull();
     const asked = { ...emptyCallState(), what: 'x', lastTopic: 'location:all' };
     expect(demoQuick(asked, 'Männikäbi tee neliteist, Haabneemes')).toMatchObject({ street: 'Männikäbi tee', house: '14', settlement: 'Haabneeme' });
-    expect(demoQuick(asked, 'Männikäbi tee 14')).toBeNull(); // asula puudu: mudel kontrollib üle
-    expect(demoQuick({ ...asked, street: 'Männikäbi tee', house: '14', lastTopic: 'location:settlement' }, 'Haabneemes')).toMatchObject({ settlement: 'Haabneeme' });
+    expect(demoQuick(asked, 'Männikäbi tee 14')).toMatchObject({ street: 'Männikäbi tee', house: '14', settlement: null });
+    // Mitu kohanime: kehtib esimesena öeldu; tänavanimi „Randvere“ ei ole asula.
+    expect(demoQuick(asked, 'Randvere Tee 20, Haabneemes, Viimsi Artiumis.')).toMatchObject({ street: 'Randvere tee', house: '20', settlement: 'Haabneeme' });
     expect(parseAddress('Pärna tänav kakskümmend kolm Tartus')).toMatchObject({ street: 'Pärna tänav', house: '23', settlement: 'Tartu' });
   });
 });
