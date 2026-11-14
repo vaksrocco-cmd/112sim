@@ -30,15 +30,10 @@ export function VideoStage({
   const [loaded, setLoaded] = useState<Record<string, boolean>>({});
   // Üleminekuklipp mängib ainult siis, kui seisund vahetus kõne ajal (mitte esimesel kuvamisel).
   const firstId = useRef(id);
-  const prevKind = useRef(state?.kind);
-  const cameFromIntro = prevKind.current === 'intro' && state?.kind === 'loop';
-  useEffect(() => {
-    prevKind.current = state?.kind;
-  }, [state?.kind]);
   const [onsetDone, setOnsetDone] = useState<Record<string, boolean>>({});
   const loopRef = useRef<HTMLVideoElement>(null);
 
-  const showOnset = Boolean(state?.onsetClipUrl) && id !== firstId.current && !cameFromIntro && !onsetDone[id];
+  const showOnset = Boolean(state?.onsetClipUrl) && id !== firstId.current && !onsetDone[id];
   const wantVideo = Boolean(state?.clipUrl) && !failed[id];
   const visible = wantVideo && (loaded[id] || showOnset);
 

@@ -121,22 +121,6 @@
       "requiresReport": false
     },
     {
-      "id": "S1",
-      "kind": "loop",
-      "clipUrl": "/clips/vanaema/s1.mp4",
-      "posterUrl": "/clips/vanaema/s1.jpg",
-      "caption": "Vanaema istub laua taga, otsib sõnu ja vaatab segaduses ringi.",
-      "observable": [
-        "confusion",
-        "speech_problem"
-      ],
-      "vitals": {
-        "conscious": "yes",
-        "breathing": "yes"
-      },
-      "requiresReport": false
-    },
-    {
       "id": "S2",
       "kind": "loop",
       "clipUrl": "/clips/vanaema/s2.mp4",
@@ -154,6 +138,22 @@
       "requiresReport": true,
       "reportWindowMs": 20000,
       "onsetClipUrl": "/clips/vanaema/onset_s2.mp4"
+    },
+    {
+      "id": "S1",
+      "kind": "loop",
+      "clipUrl": "/clips/vanaema/s1.mp4",
+      "posterUrl": "/clips/vanaema/s1.jpg",
+      "caption": "Vanaema istub laua taga, otsib sõnu ja vaatab segaduses ringi.",
+      "observable": [
+        "confusion",
+        "speech_problem"
+      ],
+      "vitals": {
+        "conscious": "yes",
+        "breathing": "yes"
+      },
+      "requiresReport": false
     },
     {
       "id": "S3",
