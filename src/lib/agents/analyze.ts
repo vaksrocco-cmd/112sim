@@ -96,7 +96,8 @@ export async function analyzeSession(session: CallSession, scenario: Scenario): 
 
   try {
     const out = await llmJson<AnalystOutput>({
-      tier: 'smart',
+      // Kiire mudel: tark mudel võttis 10–14 s ja suur ekraan ootab seda vastust. Olekud ja punktid tulevad niikuinii koodist.
+      tier: 'fast',
       system: loadPrompt('analyst'),
       messages: [
         {
@@ -116,7 +117,7 @@ export async function analyzeSession(session: CallSession, scenario: Scenario): 
       schemaName: 'analysis_texts',
       effort: 'low',
       maxTokens: 4096,
-      timeoutMs: 20000,
+      timeoutMs: 12000,
     });
 
     const clean = (s: unknown) => (typeof s === 'string' ? s.trim() : '');
@@ -131,7 +132,9 @@ export async function analyzeSession(session: CallSession, scenario: Scenario): 
       steps: steps.map((s) => {
         const w = written.get(s.id);
         const quote = s.status === 'missing' ? undefined : (verifiedQuote(w?.quote, callerSegments) ?? s.quote);
-        return { ...s, quote, note: clean(w?.note) || s.note, example: clean(w?.example) || s.example };
+        // Ütlemata sammu näidislause tuleb koodist: seal pole helistaja sõnu, millest mudel saaks lause kokku panna.
+        const example = s.status === 'missing' ? s.example : clean(w?.example).replace(/^[„"“”]+|[“"”]+$/g, '') || s.example;
+        return { ...s, quote, note: clean(w?.note) || s.note, example };
       }),
       // Punktid, ajad ja tulemus jäävad koodi omadeks; LLM-ilt tulevad ainult kontrollitud tsitaadid ja tekstid.
       rubric: report.rubric.map((r) => ({ ...r, evidence: quotes.get(r.id) ?? r.evidence })),
